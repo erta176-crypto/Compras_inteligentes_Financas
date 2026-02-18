@@ -1,0 +1,7 @@
+{
+  "name": "Smart Shopping & Finance$",
+  "description": "An intelligent shopping list and finance management application to help you organize your purchases, track your expenses, and save money with AI-powered assistance.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
