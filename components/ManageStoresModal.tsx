@@ -7,6 +7,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { EditIcon } from './icons/EditIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { SwipeableItem } from './SwipeableItem';
+import { ConfirmationModal } from './ConfirmationModal';
 
 const PRESET_COLORS = [
     '#2ECC71', // Emerald (Primary)
@@ -31,23 +32,29 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
     const [editingIcon, setEditingIcon] = useState('');
     const [editingColor, setEditingColor] = useState('');
 
-    const handleAddStore = () => {
-        if (!newStoreName.trim()) return;
+    // Confirmation State
+    const [storeToDeleteId, setStoreToDeleteId] = useState<string | null>(null);
+
+    const handleAddStore = (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = newStoreName.trim();
+        if (!trimmed) return;
+        
         const newStore = {
             id: `store-${Date.now()}`,
-            name: newStoreName.trim(),
+            name: trimmed,
             icon: newStoreIcon,
             color: newStoreColor,
         };
-        setStores([...stores, newStore]);
+        
+        setStores(prev => [...prev, newStore]);
         setNewStoreName('');
-        setNewStoreIcon('🛒');
-        setNewStoreColor('#2ECC71');
     };
 
-    const handleDeleteStore = (id: string) => {
-        if (window.confirm(t('confirm_delete_store'))) {
-            setStores(stores.filter(s => s.id !== id));
+    const confirmDeleteStore = () => {
+        if (storeToDeleteId) {
+            setStores(prev => prev.filter(s => s.id !== storeToDeleteId));
+            setStoreToDeleteId(null);
         }
     };
 
@@ -60,7 +67,7 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
 
     const saveEdit = () => {
         if (!editingName.trim()) return;
-        setStores(stores.map(s => s.id === editingId ? { 
+        setStores(prev => prev.map(s => s.id === editingId ? { 
             ...s, 
             name: editingName.trim(),
             icon: editingIcon,
@@ -69,92 +76,101 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
         setEditingId(null);
     };
 
+    const storeToDeleteName = stores.find(s => s.id === storeToDeleteId)?.name || '';
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-light-surface dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-sm flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-light-surface dark:bg-dark-surface rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                 <header className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <h2 className="font-bold text-lg">{t('manage_stores')}</h2>
-                    <button onClick={onClose}><XIcon className="w-6 h-6 text-gray-400"/></button>
+                    <button onClick={onClose} className="p-1"><XIcon className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button>
                 </header>
                 
-                <div className="p-4 bg-gray-50 dark:bg-gray-900 flex flex-col gap-3">
+                <form onSubmit={handleAddStore} className="p-4 bg-gray-50 dark:bg-gray-900/50 flex flex-col gap-4">
                     <div className="flex gap-2">
                         <input 
                             type="text" 
                             value={newStoreName}
                             onChange={e => setNewStoreName(e.target.value)}
                             placeholder={t('store_name')}
-                            className="flex-1 p-2 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                            className="flex-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                         />
                         <button 
-                            onClick={handleAddStore}
-                            className="p-2 bg-primary text-white rounded-lg active:scale-95 transition-transform shrink-0"
+                            type="submit"
+                            disabled={!newStoreName.trim()}
+                            className="p-3 bg-primary text-white rounded-xl active:scale-95 transition-all shadow-md disabled:opacity-50 flex items-center justify-center"
                         >
-                            <PlusIcon className="w-5 h-5"/>
+                            <PlusIcon className="w-6 h-6"/>
                         </button>
                     </div>
                     
-                    <div className="flex flex-col gap-2">
-                         <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+                    <div className="space-y-3">
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                             {PRESET_ICONS.map(icon => (
                                 <button 
                                     key={icon} 
+                                    type="button"
                                     onClick={() => setNewStoreIcon(icon)}
-                                    className={`p-2 rounded-lg text-lg transition-all ${newStoreIcon === icon ? 'bg-primary/20 scale-110' : 'bg-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}
+                                    className={`w-10 h-10 flex-shrink-0 rounded-lg text-lg flex items-center justify-center transition-all ${newStoreIcon === icon ? 'bg-primary text-white scale-110 shadow-lg' : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700'}`}
                                 >
                                     {icon}
                                 </button>
                             ))}
                         </div>
-                        <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                             {PRESET_COLORS.map(color => (
                                 <button 
                                     key={color} 
+                                    type="button"
                                     onClick={() => setNewStoreColor(color)}
-                                    className={`w-8 h-8 rounded-full transition-all border-2 ${newStoreColor === color ? 'border-primary scale-110' : 'border-transparent'}`}
+                                    className={`w-8 h-8 flex-shrink-0 rounded-full transition-all border-2 shadow-sm ${newStoreColor === color ? 'border-primary scale-110 ring-2 ring-primary/20' : 'border-transparent'}`}
                                     style={{ backgroundColor: color }}
                                 />
                             ))}
                         </div>
                     </div>
-                </div>
+                </form>
 
-                <div className="flex-grow overflow-y-auto p-2">
+                <div className="flex-grow overflow-y-auto p-2 divide-y divide-gray-50 dark:divide-gray-800">
                     {stores.map(store => (
-                        <SwipeableItem key={store.id} onSwipeLeft={() => handleDeleteStore(store.id)} disableSwipe={editingId !== null} className="border-b border-gray-50 dark:border-gray-800 last:border-0">
-                            <div className="flex flex-col p-3">
+                        <SwipeableItem 
+                            key={store.id} 
+                            onSwipeLeft={() => setStoreToDeleteId(store.id)} 
+                            disableSwipe={editingId !== null}
+                        >
+                            <div className="p-3">
                                 {editingId === store.id ? (
-                                    <div className="space-y-3">
+                                    <div className="space-y-3 p-1">
                                         <div className="flex gap-2">
                                             <input 
                                                 type="text" 
                                                 autoFocus
                                                 value={editingName}
                                                 onChange={e => setEditingName(e.target.value)}
-                                                className="flex-1 p-1 bg-white dark:bg-gray-800 border border-primary rounded text-sm focus:outline-none"
+                                                className="flex-1 p-2 bg-white dark:bg-gray-800 border border-primary rounded-lg text-sm focus:outline-none"
                                             />
-                                            <button onClick={saveEdit} className="text-primary p-1">
+                                            <button onClick={saveEdit} className="bg-primary text-white p-2 rounded-lg shadow-sm">
                                                 <CheckIcon className="w-5 h-5"/>
                                             </button>
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+                                            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                                 {PRESET_ICONS.map(icon => (
                                                     <button 
                                                         key={icon} 
                                                         onClick={() => setEditingIcon(icon)}
-                                                        className={`p-1 rounded text-lg transition-all ${editingIcon === icon ? 'bg-primary/20 scale-110' : ''}`}
+                                                        className={`w-8 h-8 flex-shrink-0 rounded text-lg transition-all ${editingIcon === icon ? 'bg-primary/20 scale-110' : ''}`}
                                                     >
                                                         {icon}
                                                     </button>
                                                 ))}
                                             </div>
-                                            <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+                                            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                                 {PRESET_COLORS.map(color => (
                                                     <button 
                                                         key={color} 
                                                         onClick={() => setEditingColor(color)}
-                                                        className={`w-6 h-6 rounded-full transition-all border-2 ${editingColor === color ? 'border-primary scale-110' : 'border-transparent'}`}
+                                                        className={`w-6 h-6 flex-shrink-0 rounded-full transition-all border-2 ${editingColor === color ? 'border-primary scale-110' : 'border-transparent'}`}
                                                         style={{ backgroundColor: color }}
                                                     />
                                                 ))}
@@ -163,27 +179,27 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
                                     </div>
                                 ) : (
                                     <div className="flex justify-between items-center group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm border border-gray-100 dark:border-gray-800" style={{ backgroundColor: `${store.color}15` || 'transparent' }}>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-sm border border-gray-100 dark:border-gray-800" style={{ backgroundColor: `${store.color}15` }}>
                                                 {store.icon || '🏪'}
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-light-text dark:text-dark-text">{store.name}</span>
-                                                <div className="w-12 h-1 rounded-full mt-1" style={{ backgroundColor: store.color || '#ccc' }} />
+                                                <div className="w-16 h-1 rounded-full mt-1.5" style={{ backgroundColor: store.color || '#ccc' }} />
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-1">
                                             <button 
-                                                onClick={() => startEditing(store)} 
-                                                className="p-1 text-gray-400 hover:text-primary transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); startEditing(store); }} 
+                                                className="p-2 text-gray-400 hover:text-primary transition-colors"
                                             >
-                                                <EditIcon className="w-4 h-4"/>
+                                                <EditIcon className="w-5 h-5"/>
                                             </button>
                                             <button 
-                                                onClick={() => handleDeleteStore(store.id)} 
-                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); setStoreToDeleteId(store.id); }} 
+                                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                                             >
-                                                <TrashIcon className="w-4 h-4"/>
+                                                <TrashIcon className="w-5 h-5"/>
                                             </button>
                                         </div>
                                     </div>
@@ -193,6 +209,14 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
                     ))}
                 </div>
             </div>
+
+            <ConfirmationModal 
+                isOpen={storeToDeleteId !== null}
+                title={t('confirm_delete_store')}
+                message={`${t('confirm_delete_store_msg') || 'Tens a certeza que desejas apagar a loja'} "${storeToDeleteName}"?`}
+                onConfirm={confirmDeleteStore}
+                onCancel={() => setStoreToDeleteId(null)}
+            />
         </div>
     );
 };

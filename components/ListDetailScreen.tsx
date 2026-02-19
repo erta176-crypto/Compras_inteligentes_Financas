@@ -22,6 +22,7 @@ import { ArrowUpIcon } from './icons/ArrowUpIcon';
 import { ArrowDownIcon } from './icons/ArrowDownIcon';
 import { MoveItemsModal } from './MoveItemsModal';
 import { SwipeableItem } from './SwipeableItem';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface ListDetailScreenProps {
     list: ShoppingList;
@@ -59,6 +60,7 @@ const ListItemComponent: React.FC<{
     onSelect: () => void;
     t: (k:string) => string;
 }> = ({ listId, item, onToggle, onEdit, onDelete, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, isBulkMode, isSelected, onSelect, t }) => {
+    
     const handleClick = () => {
         if (isBulkMode) {
             onSelect();
@@ -66,16 +68,10 @@ const ListItemComponent: React.FC<{
             onEdit();
         }
     };
-    
-    const handleDelete = () => {
-        if(window.confirm(t('confirm_delete_item'))) {
-            onDelete();
-        }
-    }
 
     return (
         <SwipeableItem 
-            onSwipeLeft={isBulkMode ? undefined : handleDelete}
+            onSwipeLeft={isBulkMode ? undefined : onDelete}
             onSwipeRight={isBulkMode ? undefined : onToggle}
             disableSwipe={isBulkMode}
             className="rounded-lg mb-2 shadow-sm"
@@ -170,6 +166,10 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
     const [showMoveModal, setShowMoveModal] = useState(false);
     const [quickAddName, setQuickAddName] = useState('');
 
+    // Confirmation Modals State
+    const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+    const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+
     const { pendingItems, completedItems, totalCost, totalItems, completedItemsCount } = useMemo(() => {
         const pending = list.items.filter(item => !item.completed);
         const completed = list.items.filter(item => item.completed);
@@ -214,10 +214,22 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
     };
 
     const handleBulkDeleteAction = () => {
-        if (selectedItemIds.length > 0 && window.confirm(t('confirm_bulk_delete'))) {
-            onBulkDelete(list.id, selectedItemIds);
-            setSelectedItemIds([]);
-            setIsBulkMode(false);
+        if (selectedItemIds.length > 0) {
+            setIsBulkDeleteConfirmOpen(true);
+        }
+    };
+
+    const confirmBulkDelete = () => {
+        onBulkDelete(list.id, selectedItemIds);
+        setSelectedItemIds([]);
+        setIsBulkMode(false);
+        setIsBulkDeleteConfirmOpen(false);
+    };
+
+    const confirmItemDelete = () => {
+        if (itemToDeleteId) {
+            onDeleteItem(itemToDeleteId);
+            setItemToDeleteId(null);
         }
     };
 
@@ -288,20 +300,21 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
         document.body.removeChild(link);
     };
 
+    const itemToDeleteName = list.items.find(i => i.id === itemToDeleteId)?.name || '';
 
     return (
-        <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg">
+        <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg relative">
             <header className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-light-surface dark:bg-dark-surface sticky top-0 z-10">
-                <button onClick={onBack}><ChevronLeftIcon className="w-6 h-6" /></button>
+                <button onClick={onBack} className="p-1"><ChevronLeftIcon className="w-6 h-6" /></button>
                 <div className="flex-1 text-center">
                      <h1 className="font-bold text-lg truncate px-2">{list.icon} {list.name}</h1>
                 </div>
                 <div className="flex items-center space-x-2">
                      {!isBulkMode && (
                          <>
-                            <button onClick={onEditList} title={t('edit_list')}><SettingsIcon className="w-6 h-6 text-gray-500" /></button>
-                            <button onClick={handleExportCSV} title={t('export_csv')}><DownloadIcon className="w-6 h-6 text-primary" /></button>
-                            <button onClick={handleShare} title={t('share_list')}><ShareIcon className="w-6 h-6 text-primary" /></button>
+                            <button onClick={onEditList} className="p-1" title={t('edit_list')}><SettingsIcon className="w-6 h-6 text-gray-500" /></button>
+                            <button onClick={handleExportCSV} className="p-1" title={t('export_csv')}><DownloadIcon className="w-6 h-6 text-primary" /></button>
+                            <button onClick={handleShare} className="p-1" title={t('share_list')}><ShareIcon className="w-6 h-6 text-primary" /></button>
                          </>
                      )}
                      <button 
@@ -309,7 +322,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                             setIsBulkMode(!isBulkMode);
                             setSelectedItemIds([]);
                         }} 
-                        className={`font-semibold transition-colors ${isBulkMode ? 'text-red-500' : 'text-primary'}`}
+                        className={`font-semibold transition-colors px-2 py-1 rounded ${isBulkMode ? 'text-red-500 bg-red-50' : 'text-primary'}`}
                     >
                         {isBulkMode ? t('cancel') : t('selection_mode')}
                     </button>
@@ -319,16 +332,16 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
             <div className="flex-grow overflow-y-auto">
                 <div className="p-4 space-y-4">
                     {!isBulkMode && (
-                        <div className="bg-light-surface dark:bg-dark-surface rounded-lg p-4">
-                            <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 font-bold mb-2">
+                        <div className="bg-light-surface dark:bg-dark-surface rounded-2xl p-5 shadow-sm">
+                            <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 font-black mb-2 uppercase tracking-widest">
                                 <span>{t('total_estimated')}</span>
                                 <span>{t('articles')}</span>
                             </div>
-                            <div className="flex justify-between items-center font-bold text-lg mb-4">
-                                <span>{totalCost.toFixed(2)} €</span>
+                            <div className="flex justify-between items-center font-bold text-2xl mb-4">
+                                <span className="text-primary">{totalCost.toFixed(2)} €</span>
                                 <span>{totalItems}</span>
                             </div>
-                            <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 font-bold mb-1">
+                            <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 font-bold mb-1.5">
                                  <span>{t('progress')}</span>
                                  <span>{progress}%</span>
                             </div>
@@ -339,18 +352,18 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                     <div className="flex items-center justify-between gap-4">
                         <div className="flex space-x-1 overflow-x-auto no-scrollbar py-1">
                              {(['all', 'pending', 'completed'] as const).map(f => (
-                                <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${filter === f ? 'bg-primary text-white' : 'bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700'}`}>
+                                <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-all ${filter === f ? 'bg-primary text-white shadow-md' : 'bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 text-gray-500'}`}>
                                     {t(f)}
                                 </button>
                              ))}
                         </div>
                         {!isBulkMode && (
-                            <div className="flex items-center space-x-2 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg p-1">
+                            <div className="flex items-center space-x-1 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-xl p-1 shadow-sm">
                                 <select 
                                     id="sort-select"
                                     value={sortBy} 
                                     onChange={(e) => setSortBy(e.target.value as SortOption)}
-                                    className="text-xs font-bold bg-transparent px-2 py-1 text-primary focus:outline-none cursor-pointer"
+                                    className="text-xs font-black bg-transparent px-2 py-1.5 text-primary focus:outline-none cursor-pointer uppercase"
                                 >
                                     <option value="name">{t('name')}</option>
                                     <option value="price">{t('price')}</option>
@@ -358,7 +371,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                                 </select>
                                 <button 
                                     onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                                    className="p-1 text-gray-500 hover:text-primary transition-colors"
+                                    className="p-1.5 text-gray-500 hover:text-primary transition-colors"
                                 >
                                     {sortDirection === 'asc' ? <ArrowUpIcon className="w-4 h-4"/> : <ArrowDownIcon className="w-4 h-4"/>}
                                 </button>
@@ -366,7 +379,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                         )}
                     </div>
 
-                    <div className="space-y-2 pb-24">
+                    <div className="space-y-2 pb-32">
                         {filteredItems.map(item => (
                             <ListItemComponent 
                                 key={item.id} 
@@ -374,7 +387,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                                 item={item} 
                                 onToggle={() => onToggleItem(list.id, item.id)} 
                                 onEdit={() => onEditItem(item)}
-                                onDelete={() => onDeleteItem(item.id)}
+                                onDelete={() => setItemToDeleteId(item.id)}
                                 onCheckPrice={() => onCheckPrice(list.id, item.id)}
                                 onShowPriceAlert={() => onShowPriceAlert(item)}
                                 onSearchPromotions={() => onSearchPromotions(list.id, item.id)}
@@ -390,17 +403,17 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
             </div>
 
             {isBulkMode ? (
-                <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-light-surface dark:bg-dark-surface border-t border-gray-200 dark:border-gray-700 p-4 shadow-2xl z-30">
-                    <div className="flex flex-col space-y-3">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-bold text-gray-500">{selectedItemIds.length} {t('items_selected')}</span>
-                            <button onClick={() => setSelectedItemIds([])} className="text-xs text-primary font-bold">{t('deselect_all')}</button>
+                <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-light-surface dark:bg-dark-surface border-t border-gray-200 dark:border-gray-700 p-4 shadow-2xl z-50">
+                    <div className="flex flex-col space-y-4">
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-sm font-black text-gray-500 uppercase tracking-wider">{selectedItemIds.length} {t('items_selected')}</span>
+                            <button onClick={() => setSelectedItemIds([])} className="text-xs text-primary font-black uppercase">{t('deselect_all')}</button>
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                             <button 
                                 onClick={handleBulkToggleAction}
                                 disabled={selectedItemIds.length === 0}
-                                className="col-span-1 bg-primary/10 text-primary font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center gap-1 hover:bg-primary/20 transition-colors disabled:opacity-50"
+                                className="col-span-1 bg-primary/10 text-primary font-bold py-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 hover:bg-primary/20 transition-all disabled:opacity-50"
                             >
                                 <CheckCircleIcon className="w-5 h-5" />
                                 <span className="truncate w-full text-center">{t('bulk_mark_done')}</span>
@@ -408,7 +421,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                             <button 
                                 onClick={() => setShowBulkCategoryPicker(!showBulkCategoryPicker)}
                                 disabled={selectedItemIds.length === 0}
-                                className="col-span-1 bg-blue-500/10 text-blue-500 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center gap-1 hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                                className="col-span-1 bg-blue-500/10 text-blue-500 font-bold py-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 hover:bg-blue-500/20 transition-all disabled:opacity-50"
                             >
                                 <LayersIcon className="w-5 h-5" />
                                 <span className="truncate w-full text-center">{t('bulk_category')}</span>
@@ -416,7 +429,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                              <button 
                                 onClick={() => setShowMoveModal(true)}
                                 disabled={selectedItemIds.length === 0}
-                                className="col-span-1 bg-purple-500/10 text-purple-500 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center gap-1 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                                className="col-span-1 bg-purple-500/10 text-purple-500 font-bold py-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 hover:bg-purple-500/20 transition-all disabled:opacity-50"
                             >
                                 <ArrowRightIcon className="w-5 h-5" />
                                 <span className="truncate w-full text-center">{t('bulk_move')}</span>
@@ -424,61 +437,56 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                             <button 
                                 onClick={handleBulkDeleteAction}
                                 disabled={selectedItemIds.length === 0}
-                                className="col-span-1 bg-red-500/10 text-red-500 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center gap-1 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                className="col-span-1 bg-red-500/10 text-red-500 font-bold py-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 hover:bg-red-500/20 transition-all disabled:opacity-50"
                             >
                                 <TrashIcon className="w-5 h-5" />
                                 <span className="truncate w-full text-center">{t('bulk_delete')}</span>
                             </button>
                         </div>
-                        {showBulkCategoryPicker && (
-                            <div className="pt-2 grid grid-cols-3 gap-1 animate-in slide-in-from-bottom-2 duration-200 max-h-40 overflow-y-auto">
-                                {categories.map(cat => (
-                                    <button 
-                                        key={cat.id} 
-                                        onClick={() => handleBulkCategoryAction(cat.name)}
-                                        className="text-[10px] py-1 px-2 border border-gray-200 dark:border-gray-700 rounded bg-light-bg dark:bg-dark-bg hover:bg-primary/10 transition-colors"
-                                    >
-                                        {cat.name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </footer>
             ) : (
-                <footer className="p-4 bg-light-surface dark:bg-dark-surface border-t border-gray-200 dark:border-gray-700 space-y-4">
-                    <form 
-                        onSubmit={(e) => {
+                <>
+                    <button 
+                        onClick={(e) => {
                             e.preventDefault();
-                            if (quickAddName.trim()) {
-                                (window as any).dispatchEvent(new CustomEvent('quick-add', { 
-                                    detail: { listId: list.id, name: quickAddName.trim() } 
-                                }));
-                                setQuickAddName('');
-                            }
-                        }}
-                        className="flex gap-2"
+                            onAddItem();
+                        }} 
+                        className="fixed bottom-24 right-6 w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl hover:bg-primary-dark active:scale-90 transition-all z-50 pointer-events-auto"
+                        aria-label="Adicionar Artigo"
                     >
-                        <input 
-                            type="text" 
-                            placeholder={t('quick_add_placeholder') || "Adição rápida..."}
-                            value={quickAddName}
-                            onChange={(e) => setQuickAddName(e.target.value)}
-                            className="flex-1 p-3 bg-light-bg dark:bg-dark-bg border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                        />
-                        <button 
-                            type="submit"
-                            disabled={!quickAddName.trim()}
-                            className="bg-primary text-white p-3 rounded-lg disabled:opacity-50 active:scale-95 transition-all"
-                        >
-                            <PlusIcon className="w-5 h-5" />
-                        </button>
-                    </form>
-                    <button onClick={onAddItem} className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                        <PlusCircleIcon className="w-6 h-6" />
-                        <span>{t('add_item')}</span>
+                        <PlusIcon className="w-8 h-8"/>
                     </button>
-                </footer>
+                    <footer className="p-4 bg-light-surface dark:bg-dark-surface border-t border-gray-200 dark:border-gray-700 z-10">
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (quickAddName.trim()) {
+                                    (window as any).dispatchEvent(new CustomEvent('quick-add', { 
+                                        detail: { listId: list.id, name: quickAddName.trim() } 
+                                    }));
+                                    setQuickAddName('');
+                                }
+                            }}
+                            className="flex gap-2"
+                        >
+                            <input 
+                                type="text" 
+                                placeholder={t('quick_add_placeholder') || "Adição rápida..."}
+                                value={quickAddName}
+                                onChange={(e) => setQuickAddName(e.target.value)}
+                                className="flex-1 p-3 bg-light-bg dark:bg-dark-bg border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-all"
+                            />
+                            <button 
+                                type="submit"
+                                disabled={!quickAddName.trim()}
+                                className="bg-primary text-white p-3 rounded-xl disabled:opacity-50 active:scale-95 transition-all shadow-md"
+                            >
+                                <PlusIcon className="w-6 h-6" />
+                            </button>
+                        </form>
+                    </footer>
+                </>
             )}
             
             <MoveItemsModal 
@@ -487,6 +495,22 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                 onMove={handleMoveItems}
                 lists={lists}
                 currentListId={list.id}
+            />
+
+            <ConfirmationModal 
+                isOpen={itemToDeleteId !== null}
+                title={t('confirm_delete_item')}
+                message={`${t('confirm_delete_item_msg') || 'Tens a certeza que desejas apagar o artigo'} "${itemToDeleteName}"?`}
+                onConfirm={confirmItemDelete}
+                onCancel={() => setItemToDeleteId(null)}
+            />
+
+            <ConfirmationModal 
+                isOpen={isBulkDeleteConfirmOpen}
+                title={t('bulk_delete')}
+                message={t('confirm_bulk_delete')}
+                onConfirm={confirmBulkDelete}
+                onCancel={() => setIsBulkDeleteConfirmOpen(false)}
             />
         </div>
     );

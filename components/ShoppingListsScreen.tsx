@@ -8,6 +8,7 @@ import { TrashIcon } from './icons/TrashIcon';
 import { UploadIcon } from './icons/UploadIcon';
 import { ExportListsModal } from './ExportListsModal';
 import { SwipeableItem } from './SwipeableItem';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface ShoppingListsScreenProps {
     lists: ShoppingList[];
@@ -30,13 +31,26 @@ const ListCard: React.FC<{
     const description = store ? `${store.name} • ${list.items.length} ${t('articles')}` : `${list.items.length} ${t('articles')}`;
 
     return (
-        <SwipeableItem onSwipeLeft={onDelete} className="rounded-2xl mb-4 shadow-sm">
+        <SwipeableItem 
+            onSwipeLeft={onDelete} 
+            disableSwipe={isEditing} 
+            className="rounded-2xl mb-4 shadow-sm"
+        >
             <div 
-                className="bg-light-surface dark:bg-dark-surface p-4 flex items-center space-x-4 transition-all active:scale-[0.98] border-l-4"
+                className={`bg-light-surface dark:bg-dark-surface p-4 flex items-center space-x-4 transition-all border-l-4 ${!isEditing ? 'active:scale-[0.98] cursor-pointer' : 'cursor-default'}`}
                 style={{ borderLeftColor: store?.color || 'transparent' }}
+                onClick={(e) => {
+                    if (!isEditing) onClick();
+                }}
             >
                 {isEditing && (
-                    <button onClick={onDelete} className="text-red-500 hover:text-red-700 p-2">
+                    <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            onDelete(); 
+                        }} 
+                        className="text-red-500 hover:text-red-700 p-2 shrink-0 z-10"
+                    >
                         <TrashIcon className="w-6 h-6" />
                     </button>
                 )}
@@ -52,22 +66,24 @@ const ListCard: React.FC<{
                     )}
                 </div>
 
-                <div className="flex-grow cursor-pointer" onClick={onClick}>
-                    <p className="font-bold text-light-text dark:text-dark-text leading-tight">{list.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+                <div className="flex-grow overflow-hidden">
+                    <p className="font-bold text-light-text dark:text-dark-text leading-tight truncate">{list.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">{description}</p>
                 </div>
 
-                <div className="flex-shrink-0">
-                    <div 
-                        className="w-12 h-12 rounded-full border-2 flex items-center justify-center text-xs font-black transition-colors"
-                        style={{ 
-                            borderColor: list.progress === 100 ? '#2ECC71' : (store?.color || '#2ECC71'),
-                            color: list.progress === 100 ? '#2ECC71' : (store?.color || '#2ECC71')
-                        }}
-                    >
-                        {list.progress}%
+                {!isEditing && (
+                    <div className="flex-shrink-0">
+                        <div 
+                            className="w-12 h-12 rounded-full border-2 flex items-center justify-center text-xs font-black transition-colors"
+                            style={{ 
+                                borderColor: list.progress === 100 ? '#2ECC71' : (store?.color || '#2ECC71'),
+                                color: list.progress === 100 ? '#2ECC71' : (store?.color || '#2ECC71')
+                            }}
+                        >
+                            {list.progress}%
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </SwipeableItem>
     );
@@ -81,6 +97,9 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const { t, stores } = useApp();
 
+    // Confirm state
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
     const filteredLists = useMemo(() => {
         return lists
             .filter(list => list.status === activeTab)
@@ -89,8 +108,13 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
     }, [lists, activeTab, searchQuery, activeStoreFilter]);
 
     const handleDelete = (listId: string) => {
-        if(window.confirm(t('confirm_delete_list'))) {
-            onDeleteList(listId);
+        setConfirmDeleteId(listId);
+    };
+
+    const confirmDelete = () => {
+        if (confirmDeleteId) {
+            onDeleteList(confirmDeleteId);
+            setConfirmDeleteId(null);
         }
     };
     
@@ -98,16 +122,20 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
         return stores.find(s => s.id === storeId);
     }
 
+    const listToDeleteName = lists.find(l => l.id === confirmDeleteId)?.name || '';
+
     return (
         <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg">
             <header className="p-4 pb-2">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">{t('shopping_lists_title')}</h1>
                     <div className="flex items-center space-x-4">
-                         <button onClick={() => setIsExportModalOpen(true)} className="text-primary">
+                         <button onClick={() => setIsExportModalOpen(true)} className="text-primary hover:text-primary-dark transition-colors p-1">
                             <UploadIcon className="w-6 h-6" />
                         </button>
-                        <button onClick={() => setIsEditing(!isEditing)} className="font-semibold text-primary">{isEditing ? t('done') : t('edit')}</button>
+                        <button onClick={() => setIsEditing(!isEditing)} className="font-semibold text-primary hover:text-primary-dark transition-colors p-1">
+                            {isEditing ? t('done') : t('edit')}
+                        </button>
                     </div>
                 </div>
 
@@ -167,14 +195,35 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
                 </div>
             </div>
 
-            <div className="flex-grow overflow-y-auto p-4">
-                {filteredLists.map(list => (
-                    <ListCard key={list.id} list={list} store={getStore(list.storeId)} onClick={() => onSelectList(list.id)} isEditing={isEditing} onDelete={() => handleDelete(list.id)} />
-                ))}
+            <div className="flex-grow overflow-y-auto p-4 pb-24">
+                {filteredLists.length > 0 ? (
+                    filteredLists.map(list => (
+                        <ListCard 
+                            key={list.id} 
+                            list={list} 
+                            store={getStore(list.storeId)} 
+                            onClick={() => onSelectList(list.id)} 
+                            isEditing={isEditing} 
+                            onDelete={() => handleDelete(list.id)} 
+                        />
+                    ))
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60 py-20">
+                        <SearchIcon className="w-12 h-12 mb-4" />
+                        <p className="font-medium text-sm text-center px-10">Nenhuma lista encontrada.</p>
+                    </div>
+                )}
             </div>
             
             {!isEditing && (
-                 <button onClick={onAddList} className="fixed bottom-24 right-1/2 translate-x-[calc(50%+160px)] md:right-8 md:translate-x-0 w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white shadow-lg hover:bg-primary-dark active:scale-95 transition-all z-20">
+                 <button 
+                    onClick={(e) => {
+                        e.preventDefault();
+                        onAddList();
+                    }} 
+                    className="fixed bottom-24 right-6 w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl hover:bg-primary-dark active:scale-90 transition-all z-50 pointer-events-auto"
+                    aria-label="Adicionar Lista"
+                >
                     <PlusIcon className="w-8 h-8"/>
                 </button>
             )}
@@ -185,6 +234,14 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
                 lists={filteredLists}
                 stores={stores}
                 onImport={onImportLists}
+            />
+
+            <ConfirmationModal 
+                isOpen={confirmDeleteId !== null}
+                title={t('confirm_delete_list')}
+                message={`${t('confirm_delete_list_msg') || 'Tens a certeza que desejas apagar a lista'} "${listToDeleteName}"?`}
+                onConfirm={confirmDelete}
+                onCancel={() => setConfirmDeleteId(null)}
             />
         </div>
     );

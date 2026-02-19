@@ -1,6 +1,16 @@
 
 import React from 'react';
 
+export interface User {
+    id: string;
+    name: string;
+    email: string;
+    photo?: string;
+    isProfileComplete: boolean;
+    biometricsEnabled?: boolean;
+    memberSince: string;
+}
+
 export interface Store {
     id: string;
     name: string;
@@ -71,7 +81,7 @@ export interface ExpenseCategory {
     color: string;
 }
 
-export type AppScreen = 'onboarding' | 'welcome' | 'lists' | 'listDetail' | 'addItem' | 'dashboard' | 'profile';
+export type AppScreen = 'onboarding' | 'welcome' | 'setupProfile' | 'lists' | 'listDetail' | 'addItem' | 'dashboard' | 'profile';
 
 export type Language = 'en' | 'pt';
 
@@ -82,9 +92,15 @@ export interface AppContextType {
     setLanguage: (language: Language) => void;
     theme: Theme;
     setTheme: (theme: Theme) => void;
+    user: User | null;
+    loginWithGoogle: () => Promise<void>;
+    loginWithBiometrics: () => Promise<boolean>;
+    logout: () => void;
+    updateUser: (updates: Partial<User>) => void;
     t: (key: string) => string;
     stores: Store[];
     setStores: React.Dispatch<React.SetStateAction<Store[]>>;
     categories: Category[];
     setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+    login: (user: User) => void;
 }

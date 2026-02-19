@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, ReactNode, useEffect } from 'react';
+import React, { useState, useRef, ReactNode } from 'react';
 import { TrashIcon } from './icons/TrashIcon';
 import { CheckIcon } from './icons/CheckIcon';
 
@@ -9,7 +9,6 @@ interface SwipeableItemProps {
     onSwipeRight?: () => void;
     disableSwipe?: boolean;
     className?: string;
-    confirmLeft?: boolean; // If true, expects action to potentially cancel, so snaps back
 }
 
 export const SwipeableItem: React.FC<SwipeableItemProps> = ({ 
@@ -17,88 +16,139 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
     onSwipeLeft, 
     onSwipeRight, 
     disableSwipe = false,
-    className = "",
-    confirmLeft = false
+    className = ""
 }) => {
     const [offsetX, setOffsetX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const startX = useRef(0);
-    const currentX = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
+    const hasMoved = useRef(false);
 
-    const THRESHOLD = 80; // px to trigger action
+    // Thresholds
+    const DRAG_THRESHOLD = 5; 
+    const ACTION_THRESHOLD = 60; 
+    const MAX_SWIPE = 90;
 
-    const handleTouchStart = (e: React.TouchEvent) => {
+    const handlePointerDown = (e: React.PointerEvent) => {
+        if (disableSwipe || e.button !== 0) return;
+        if (offsetX !== 0) {
+            // Se já estiver aberto, o próximo toque fecha
+            return;
+        }
+        startX.current = e.clientX;
+        hasMoved.current = false;
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
         if (disableSwipe) return;
-        startX.current = e.touches[0].clientX;
-        currentX.current = e.touches[0].clientX;
-        setIsDragging(true);
+
+        const diffX = e.clientX - startX.current;
+
+        if (!isDragging && Math.abs(diffX) > DRAG_THRESHOLD) {
+            setIsDragging(true);
+            hasMoved.current = true;
+            containerRef.current?.setPointerCapture(e.pointerId);
+        }
+
+        if (isDragging) {
+            let diff = diffX;
+            if (diff > MAX_SWIPE) diff = MAX_SWIPE;
+            if (diff < -MAX_SWIPE) diff = -MAX_SWIPE;
+
+            if (!onSwipeRight && diff > 0) return;
+            if (!onSwipeLeft && diff < 0) return;
+
+            setOffsetX(diff);
+        }
     };
 
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (!isDragging || disableSwipe) return;
-        currentX.current = e.touches[0].clientX;
-        const diff = currentX.current - startX.current;
-
-        // Block swipe directions if action not defined
-        if (!onSwipeRight && diff > 0) return;
-        if (!onSwipeLeft && diff < 0) return;
-
-        setOffsetX(diff);
-    };
-
-    const handleTouchEnd = () => {
+    const handlePointerUp = (e: React.PointerEvent) => {
         if (!isDragging) return;
-        setIsDragging(false);
 
-        if (onSwipeLeft && offsetX < -THRESHOLD) {
-            // Trigger Left Action (Delete)
-            setOffsetX(-1000); // Animate off screen
-            // Small delay to allow animation to start before logic (like alert/confirm) blocks JS
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    onSwipeLeft();
-                    // If action didn't unmount us (e.g. cancelled confirm), snap back
-                    setTimeout(() => setOffsetX(0), 300);
-                });
-            });
-        } else if (onSwipeRight && offsetX > THRESHOLD) {
-            // Trigger Right Action (Complete)
-            // For toggle, we usually snap back to 0 immediately so the user sees the state change
+        setIsDragging(false);
+        containerRef.current?.releasePointerCapture(e.pointerId);
+
+        if (onSwipeLeft && offsetX < -ACTION_THRESHOLD) {
+            setOffsetX(-MAX_SWIPE); 
+        } else if (onSwipeRight && offsetX > ACTION_THRESHOLD) {
             onSwipeRight();
             setOffsetX(0);
         } else {
-            // Snap back
             setOffsetX(0);
         }
     };
 
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onSwipeLeft) {
+            onSwipeLeft();
+            setOffsetX(0);
+        }
+    };
+
+    const handleContentClickCapture = (e: React.MouseEvent) => {
+        if (offsetX !== 0) {
+            e.stopPropagation();
+            e.preventDefault();
+            setOffsetX(0);
+            return;
+        }
+
+        if (hasMoved.current) {
+            e.stopPropagation();
+            e.preventDefault();
+            hasMoved.current = false; 
+        }
+    };
+
     return (
-        <div className={`relative overflow-hidden touch-pan-y ${className}`} ref={containerRef}>
-            {/* Background for Swipe Right (Complete) */}
-            <div 
-                className={`absolute inset-y-0 left-0 w-full bg-green-500 flex items-center justify-start pl-6 transition-opacity duration-200 ${offsetX > 0 ? 'opacity-100' : 'opacity-0'}`}
-            >
-                <CheckIcon className="w-6 h-6 text-white" />
+        <div 
+            className={`relative overflow-hidden touch-none select-none ${className}`} 
+            ref={containerRef}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+        >
+            {/* Background Actions - Rendered first but can be put on top via z-index if needed */}
+            <div className="absolute inset-0 flex justify-between pointer-events-none">
+                {/* Right Action (Complete) */}
+                {onSwipeRight && (
+                    <div 
+                        className={`bg-green-500 h-full flex items-center justify-start pl-6 transition-opacity duration-200 ${offsetX > 0 ? 'opacity-100' : 'opacity-0'}`}
+                        style={{ width: Math.max(0, offsetX) }}
+                    >
+                        <CheckIcon className="w-6 h-6 text-white" />
+                    </div>
+                )}
+
+                {/* Left Action (Delete) */}
+                {onSwipeLeft && (
+                    <div 
+                        className={`absolute inset-y-0 right-0 bg-red-500 flex items-center justify-end transition-opacity duration-200 pointer-events-auto ${offsetX < 0 ? 'opacity-100' : 'opacity-0'}`}
+                        style={{ width: MAX_SWIPE }}
+                    >
+                        <button 
+                            onPointerDown={e => e.stopPropagation()} // Evita que o drag do pai interfira
+                            onClick={handleDeleteClick}
+                            className="h-full w-full flex items-center justify-center text-white active:bg-red-700 transition-colors"
+                            aria-label="Confirm Delete"
+                        >
+                            <TrashIcon className="w-6 h-6" />
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Background for Swipe Left (Delete) */}
+            {/* Main Content Layer */}
             <div 
-                className={`absolute inset-y-0 right-0 w-full bg-red-500 flex items-center justify-end pr-6 transition-opacity duration-200 ${offsetX < 0 ? 'opacity-100' : 'opacity-0'}`}
-            >
-                <TrashIcon className="w-6 h-6 text-white" />
-            </div>
-
-            {/* Content */}
-            <div 
-                className="relative bg-light-surface dark:bg-dark-surface transition-transform duration-200 ease-out"
+                className="relative bg-light-surface dark:bg-dark-surface z-10"
                 style={{ 
                     transform: `translateX(${offsetX}px)`,
-                    transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+                    transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
+                onClickCapture={handleContentClickCapture}
             >
                 {children}
             </div>

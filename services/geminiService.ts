@@ -92,8 +92,8 @@ export const fetchItemPrice = async (itemName: string): Promise<{ price: number;
         const source = sourceChunk ? { uri: sourceChunk.uri, title: sourceChunk.title || 'Source' } : null;
 
         const parsed = parseJSON(response.text || '');
-        if (parsed && typeof parsed.price === 'number') {
-            return { price: parsed.price, source };
+        if (parsed && typeof parsed.price !== 'undefined') {
+            return { price: Number(parsed.price), source };
         }
     } catch (error: any) {
         // Only log warning, as we will try fallback
@@ -113,41 +113,13 @@ export const fetchItemPrice = async (itemName: string): Promise<{ price: number;
         const jsonString = response.text;
         if (jsonString) {
             const parsed = JSON.parse(jsonString);
-            return { price: parsed.price, source: null };
+            return { price: Number(parsed.price), source: null };
         }
     } catch (error) {
         console.error("Error fetching fallback item price from Gemini API:", error);
     }
     
     return null;
-};
-
-const promotionSchema = {
-    type: Type.OBJECT,
-    properties: {
-        promotions: {
-            type: Type.ARRAY,
-            description: "A list of current promotions for the item.",
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    store: {
-                        type: Type.STRING,
-                        description: "The name of the supermarket or store.",
-                    },
-                    description: {
-                        type: Type.STRING,
-                        description: "A brief description of the promotion.",
-                    },
-                    price: {
-                        type: Type.NUMBER,
-                        description: "The promotional price in euros, if available.",
-                    },
-                },
-                required: ["store", "description"],
-            },
-        },
-    },
 };
 
 export const fetchItemPromotions = async (itemName: string): Promise<Promotion[] | null> => {
@@ -161,7 +133,6 @@ export const fetchItemPromotions = async (itemName: string): Promise<Promotion[]
             Do not use markdown code blocks.`,
             config: {
                 tools: [{ googleSearch: {} }],
-                // Removed responseSchema/MimeType to avoid 403 errors with Search tool
             },
         });
 
@@ -172,13 +143,15 @@ export const fetchItemPromotions = async (itemName: string): Promise<Promotion[]
         
         const parsed = parseJSON(response.text || '');
         if (parsed && Array.isArray(parsed.promotions)) {
-            return parsed.promotions.map((promo: any) => ({ ...promo, source }));
+            return parsed.promotions.map((promo: any) => ({ 
+                ...promo, 
+                price: promo.price ? Number(promo.price) : undefined,
+                source 
+            }));
         }
         return [];
     } catch (error) {
         console.error("Error fetching item promotions from Gemini API:", error);
-        // Fallback for promotions is tricky as they need to be real-time. 
-        // We return empty array to indicate no promotions found rather than crashing.
         return [];
     }
 };

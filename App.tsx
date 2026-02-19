@@ -1,428 +1,281 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { AppScreen, ShoppingList, ListItem, Transaction, ExpenseCategory } from './types';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { SetupProfileScreen } from './components/SetupProfileScreen';
 import { ShoppingListsScreen } from './components/ShoppingListsScreen';
-import { FinanceDashboardScreen } from './components/FinanceDashboardScreen';
-import { ProfileScreen } from './components/ProfileScreen';
 import { ListDetailScreen } from './components/ListDetailScreen';
 import { AddItemScreen } from './components/AddItemScreen';
+import { FinanceDashboardScreen } from './components/FinanceDashboardScreen';
+import { ProfileScreen } from './components/ProfileScreen';
 import { BottomNavBar } from './components/BottomNavBar';
 import { EditListModal } from './components/EditListModal';
 import { PriceAlertModal } from './components/PriceAlertModal';
 import { PromotionsModal } from './components/PromotionsModal';
-import { shoppingLists as initialShoppingLists, recentTransactions, expensesByCategory } from './constants';
-import { ShoppingList, ListItem as ItemType, AppScreen, Promotion } from './types';
+import { initialStores } from './constants';
 import { fetchItemPrice, fetchItemPromotions } from './services/geminiService';
+import { CartIcon } from './components/icons/CartIcon';
+import { PlaneIcon } from './components/icons/PlaneIcon';
 
 const AppContent: React.FC = () => {
-    const { theme, stores, categories } = useApp();
-    const [screen, setScreen] = useState<AppScreen>('onboarding');
-    const [activeListId, setActiveListId] = useState<string | null>(null);
-    const [itemToEdit, setItemToEdit] = useState<ItemType | null>(null);
-    const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [priceAlertItem, setPriceAlertItem] = useState<ItemType | null>(null);
-    const [promotionsModalItem, setPromotionsModalItem] = useState<ItemType | null>(null);
-
-
-    // Load initial data from localStorage or use initial constants
-    useEffect(() => {
-        try {
-            const storedLists = localStorage.getItem('shoppingLists');
-            if (storedLists) {
-                setShoppingLists(JSON.parse(storedLists));
-            } else {
-                setShoppingLists(initialShoppingLists);
-            }
-        } catch (error) {
-            console.error("Failed to parse shopping lists from localStorage", error);
-            setShoppingLists(initialShoppingLists);
-        }
-
-        if (localStorage.getItem('onboardingComplete')) {
-            setScreen('welcome');
-        }
-    }, []);
-
-    // Persist shopping lists to localStorage whenever they change
-    useEffect(() => {
-        try {
-            localStorage.setItem('shoppingLists', JSON.stringify(shoppingLists));
-        } catch (error) {
-            console.error("Failed to save shopping lists to localStorage", error);
-        }
-    }, [shoppingLists]);
+    const { user, t } = useApp();
+    const [screen, setScreen] = useState<AppScreen>('welcome');
+    const [lists, setLists] = useState<ShoppingList[]>([]);
+    const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [editingItem, setEditingItem] = useState<ListItem | null>(null);
+    const [editingList, setEditingList] = useState<ShoppingList | null>(null);
+    const [alertItem, setAlertItem] = useState<ListItem | null>(null);
+    const [promoItem, setPromoItem] = useState<ListItem | null>(null);
     
+    // Auth state persistence and initialization
     useEffect(() => {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }, [theme]);
-
-    const handleQuickAdd = useCallback((event: any) => {
-        const { listId, name } = event.detail;
-        const newItem: ItemType = {
-            id: `item-${Date.now()}`,
-            name,
-            quantity: 1,
-            unit: 'un',
-            category: categories[0]?.name || 'Mercearia',
-            completed: false,
-            promotionStatus: 'idle',
-        };
+        const onboardingDone = localStorage.getItem('onboarding_done');
+        const storedLists = localStorage.getItem('shopping_lists');
         
-        setShoppingLists(prevLists =>
-            prevLists.map(list =>
-                list.id === listId
-                    ? { ...list, items: [...list.items, newItem], itemCount: list.items.length + 1 }
-                    : list
-            )
-        );
-    }, [categories]);
+        if (storedLists) {
+            setLists(JSON.parse(storedLists));
+        }
+
+        if (!onboardingDone) {
+            setScreen('onboarding');
+        } else if (!user) {
+            setScreen('welcome');
+        } else if (!user.isProfileComplete) {
+            setScreen('setupProfile');
+        } else {
+            setScreen('lists');
+        }
+    }, [user]);
 
     useEffect(() => {
-        window.addEventListener('quick-add', handleQuickAdd);
-        return () => window.removeEventListener('quick-add', handleQuickAdd);
-    }, [handleQuickAdd]);
+        if (lists.length > 0) {
+            localStorage.setItem('shopping_lists', JSON.stringify(lists));
+        }
+    }, [lists]);
 
-    const updateItemInLists = (listId: string, itemId: string, updates: Partial<ItemType>) => {
-        setShoppingLists(prevLists =>
-            prevLists.map(list =>
-                list.id === listId
-                    ? {
-                        ...list,
-                        items: list.items.map(item =>
-                            item.id === itemId ? { ...item, ...updates } : item
-                        )
-                    }
-                    : list
-            )
-        );
+    // Derived State
+    const selectedList = lists.find(l => l.id === selectedListId);
+
+    // Actions
+    const handleOnboardingComplete = () => {
+        localStorage.setItem('onboarding_done', 'true');
+        setScreen('welcome');
     };
 
-    const handleCheckItemPrice = useCallback(async (listId: string, itemId: string) => {
-        const list = shoppingLists.find(l => l.id === listId);
-        const item = list?.items.find(i => i.id === itemId);
-        if (!item) return;
-        
-        updateItemInLists(listId, itemId, { alert: 'checking' });
-
-        const priceData = await fetchItemPrice(item.name);
-
-        if (priceData) {
-            const previousPrice = item.price;
-            let alertStatus: ItemType['alert'] = 'stable';
-            if (previousPrice) {
-                if (priceData.price < previousPrice) alertStatus = 'down';
-                else if (priceData.price > previousPrice) alertStatus = 'up';
-            }
-
-            const updatedItem = {
-                price: priceData.price,
-                priceHistory: [...(item.priceHistory || []), previousPrice].filter(p => p !== undefined) as number[],
-                alert: alertStatus,
-                source: priceData.source || undefined,
-            };
-            updateItemInLists(listId, itemId, updatedItem);
-            
-            const currentList = shoppingLists.find(l => l.id === listId);
-            const finalUpdatedItem = currentList?.items.find(i => i.id === itemId);
-            if (finalUpdatedItem) {
-                setPriceAlertItem(finalUpdatedItem);
-            }
-
+    const handleAuthComplete = () => {
+        if (user && !user.isProfileComplete) {
+            setScreen('setupProfile');
         } else {
-             updateItemInLists(listId, itemId, { alert: undefined }); // Reset on error
+            setScreen('lists');
         }
-    }, [shoppingLists]);
+    };
 
-    const handleSearchPromotions = useCallback(async (listId: string, itemId: string) => {
-        const list = shoppingLists.find(l => l.id === listId);
-        const item = list?.items.find(i => i.id === itemId);
-        if (!item) return;
-    
-        updateItemInLists(listId, itemId, { promotionStatus: 'checking' });
-    
-        const promotions = await fetchItemPromotions(item.name);
-    
-        updateItemInLists(listId, itemId, {
-            promotions: promotions || [],
-            promotionStatus: 'checked'
-        });
-    }, [shoppingLists]);
-
-    const handleSelectPromotion = useCallback((promotion: Promotion) => {
-        if (activeListId && promotionsModalItem) {
-            updateItemInLists(activeListId, promotionsModalItem.id, {
-                selectedPromotion: promotion,
-                price: promotion.price || promotionsModalItem.price,
-                source: promotion.source || undefined
-            });
-            setPromotionsModalItem(null);
-        }
-    }, [activeListId, promotionsModalItem]);
-
-    const handleOnboardingComplete = useCallback(() => {
-        localStorage.setItem('onboardingComplete', 'true');
-        setScreen('welcome');
-    }, []);
-
-    const handleWelcomeComplete = useCallback(() => {
+    const handleProfileComplete = () => {
         setScreen('lists');
-    }, []);
+    };
 
-    const handleSelectList = useCallback((listId: string) => {
-        setActiveListId(listId);
-        setScreen('listDetail');
-    }, []);
-
-    const handleItemAdded = useCallback((newItem: ItemType) => {
-        if (activeListId) {
-            setShoppingLists(prevLists =>
-                prevLists.map(list =>
-                    list.id === activeListId
-                        ? { ...list, items: [...list.items, newItem], itemCount: list.items.length + 1 }
-                        : list
-                )
-            );
-        }
-        setScreen('listDetail');
-    }, [activeListId]);
-    
-    const handleItemUpdated = useCallback((updatedItem: ItemType) => {
-        if (activeListId) {
-            setShoppingLists(prevLists =>
-                prevLists.map(list =>
-                    list.id === activeListId
-                        ? { ...list, items: list.items.map(item => item.id === updatedItem.id ? updatedItem : item) }
-                        : list
-                )
-            );
-        }
-        setItemToEdit(null);
-        setScreen('listDetail');
-    }, [activeListId]);
-
-    const handleItemDeleted = useCallback((itemId: string) => {
-        if(activeListId) {
-            setShoppingLists(prevLists => 
-                prevLists.map(list => 
-                    list.id === activeListId
-                    ? { ...list, items: list.items.filter(item => item.id !== itemId), itemCount: list.items.length - 1 }
-                    : list
-                )
-            );
-        }
-        setItemToEdit(null);
-        setScreen('listDetail');
-    }, [activeListId]);
-
-    const handleToggleItem = useCallback((listId: string, itemId: string) => {
-        updateItemInLists(listId, itemId, { completed: !shoppingLists.find(l => l.id === listId)?.items.find(i => i.id === itemId)?.completed });
-    }, [shoppingLists]);
-
-    const handleEditItem = useCallback((item: ItemType) => {
-        setItemToEdit(item);
-        setScreen('addItem');
-    }, []);
-
-    const handleAddNewList = useCallback(() => {
+    const handleAddList = () => {
         const newList: ShoppingList = {
             id: `list-${Date.now()}`,
             name: 'Nova Lista',
+            icon: '🛍️',
             itemCount: 0,
             estimatedCost: 0,
             progress: 0,
-            icon: '📝',
             items: [],
             status: 'active'
         };
-        setShoppingLists(prev => [newList, ...prev]);
-        setActiveListId(newList.id);
-        setIsEditModalOpen(true);
-    }, []);
+        setLists([...lists, newList]);
+        setSelectedListId(newList.id);
+        setScreen('listDetail');
+    };
 
-    const handleDeleteList = useCallback((listId: string) => {
-        setShoppingLists(prev => prev.filter(list => list.id !== listId));
-    }, []);
+    const handleDeleteList = (id: string) => {
+        setLists(lists.filter(l => l.id !== id));
+    };
 
-    const handleUpdateListDetails = useCallback((listId: string, name: string, icon: string, storeId?: string) => {
-        setShoppingLists(prev => prev.map(list => list.id === listId ? {...list, name, icon, storeId } : list));
-        setIsEditModalOpen(false);
-    }, []);
-
-    const handleBulkUpdate = useCallback((listId: string, itemIds: string[], updates: Partial<ItemType>) => {
-        setShoppingLists(prevLists =>
-            prevLists.map(list =>
-                list.id === listId
-                    ? {
-                        ...list,
-                        items: list.items.map(item =>
-                            itemIds.includes(item.id) ? { ...item, ...updates } : item
-                        )
-                    }
-                    : list
-            )
-        );
-    }, []);
-
-    const handleBulkDelete = useCallback((listId: string, itemIds: string[]) => {
-        setShoppingLists(prevLists =>
-            prevLists.map(list =>
-                list.id === listId
-                    ? {
-                        ...list,
-                        items: list.items.filter(item => !itemIds.includes(item.id)),
-                        itemCount: list.items.length - itemIds.length
-                    }
-                    : list
-            )
-        );
-    }, []);
-
-    const handleBulkMove = useCallback((sourceListId: string, destListId: string, itemIds: string[]) => {
-        setShoppingLists(prevLists => {
-            const sourceListIndex = prevLists.findIndex(l => l.id === sourceListId);
-            const destListIndex = prevLists.findIndex(l => l.id === destListId);
-
-            if (sourceListIndex === -1 || destListIndex === -1) return prevLists;
-
-            const sourceList = prevLists[sourceListIndex];
-            const destList = prevLists[destListIndex];
-
-            // Filter items to move
-            const itemsToMove = sourceList.items.filter(item => itemIds.includes(item.id));
-            
-            // Remove from source
-            const newSourceItems = sourceList.items.filter(item => !itemIds.includes(item.id));
-            
-            // Add to destination
-            const newDestItems = [...destList.items, ...itemsToMove];
-
-            const newLists = [...prevLists];
-            
-            newLists[sourceListIndex] = {
-                ...sourceList,
-                items: newSourceItems,
-                itemCount: newSourceItems.length
-            };
-            
-            newLists[destListIndex] = {
-                ...destList,
-                items: newDestItems,
-                itemCount: newDestItems.length
-            };
-
-            return newLists;
-        });
-    }, []);
-
-    const handleImportLists = useCallback((importedLists: ShoppingList[]) => {
-        setShoppingLists(prev => {
-            // Generate new IDs to prevent collisions
-            const sanitizedImports = importedLists.map(list => ({
+    const handleToggleItem = (listId: string, itemId: string) => {
+        setLists(lists.map(list => {
+            if (list.id !== listId) return list;
+            const updatedItems = list.items.map(item => 
+                item.id === itemId ? { ...item, completed: !item.completed } : item
+            );
+            const completedCount = updatedItems.filter(i => i.completed).length;
+            return {
                 ...list,
-                id: `list-imp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                items: list.items.map(item => ({
-                    ...item,
-                    id: `item-imp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-                }))
-            }));
-            return [...sanitizedImports, ...prev];
-        });
-    }, []);
+                items: updatedItems,
+                progress: updatedItems.length > 0 ? Math.round((completedCount / updatedItems.length) * 100) : 0
+            };
+        }));
+    };
 
-    const activeList = useMemo(() => {
-        return shoppingLists.find(list => list.id === activeListId) || null;
-    }, [activeListId, shoppingLists]);
+    const handleSaveItem = (itemToSave: ListItem) => {
+        if (!selectedListId) return;
+        setLists(lists.map(list => {
+            if (list.id !== selectedListId) return list;
+            const itemExists = list.items.some(i => i.id === itemToSave.id);
+            const updatedItems = itemExists 
+                ? list.items.map(i => i.id === itemToSave.id ? itemToSave : i)
+                : [...list.items, itemToSave];
+            
+            const completedCount = updatedItems.filter(i => i.completed).length;
+            return {
+                ...list,
+                items: updatedItems,
+                itemCount: updatedItems.length,
+                estimatedCost: updatedItems.reduce((acc, i) => acc + (i.price || 0), 0),
+                progress: updatedItems.length > 0 ? Math.round((completedCount / updatedItems.length) * 100) : 0
+            };
+        }));
+        setScreen('listDetail');
+        setEditingItem(null);
+    };
 
-    const renderScreen = () => {
-        switch (screen) {
-            case 'onboarding':
-                return <OnboardingScreen onComplete={handleOnboardingComplete} />;
-            case 'welcome':
-                return <WelcomeScreen onComplete={handleWelcomeComplete} />;
-            case 'lists':
-                return <ShoppingListsScreen 
-                    lists={shoppingLists} 
-                    onSelectList={handleSelectList} 
-                    onAddList={handleAddNewList} 
-                    onDeleteList={handleDeleteList}
-                    onImportLists={handleImportLists}
-                />;
-            case 'dashboard':
-                return <FinanceDashboardScreen transactions={recentTransactions} expenses={expensesByCategory} />;
-            case 'profile':
-                return <ProfileScreen />;
-            case 'listDetail':
-                return activeList && <ListDetailScreen 
-                    list={activeList}
-                    lists={shoppingLists}
-                    onBack={() => setScreen('lists')} 
-                    onAddItem={() => { setItemToEdit(null); setScreen('addItem'); }} 
-                    onToggleItem={handleToggleItem} 
-                    onEditItem={handleEditItem} 
-                    onDeleteItem={handleItemDeleted}
-                    onEditList={() => setIsEditModalOpen(true)} 
-                    onCheckPrice={handleCheckItemPrice} 
-                    onShowPriceAlert={setPriceAlertItem} 
-                    onSearchPromotions={handleSearchPromotions} 
-                    onShowPromotions={setPromotionsModalItem}
-                    onBulkUpdate={handleBulkUpdate}
-                    onBulkDelete={handleBulkDelete}
-                    onBulkMove={handleBulkMove}
-                />;
-            case 'addItem':
-                 return <AddItemScreen 
-                    onSave={itemToEdit ? handleItemUpdated : handleItemAdded} 
-                    onCancel={() => setScreen('listDetail')} 
-                    onDelete={handleItemDeleted}
-                    item={itemToEdit} 
-                />;
-            default:
-                return <ShoppingListsScreen 
-                    lists={shoppingLists} 
-                    onSelectList={handleSelectList} 
-                    onAddList={handleAddNewList} 
-                    onDeleteList={handleDeleteList}
-                    onImportLists={handleImportLists}
-                />;
+    const handleCheckPrice = async (listId: string, itemId: string) => {
+        const list = lists.find(l => l.id === listId);
+        const item = list?.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        // Set checking state locally
+        setLists(prev => prev.map(l => l.id === listId ? {
+            ...l,
+            items: l.items.map(i => i.id === itemId ? { ...i, alert: 'checking' } : i)
+        } : l));
+
+        const result = await fetchItemPrice(item.name);
+        if (result) {
+            setLists(prev => prev.map(l => l.id === listId ? {
+                ...l,
+                items: l.items.map(i => {
+                    if (i.id !== itemId) return i;
+                    const history = [...(i.priceHistory || []), i.price || result.price];
+                    const alert = result.price < (i.price || result.price) ? 'down' : result.price > (i.price || result.price) ? 'up' : 'stable';
+                    return { ...i, price: result.price, priceHistory: history, alert, source: result.source };
+                })
+            } : l));
         }
     };
-    
+
+    const handleSearchPromotions = async (listId: string, itemId: string) => {
+        setLists(prev => prev.map(l => l.id === listId ? {
+            ...l,
+            items: l.items.map(i => i.id === itemId ? { ...i, promotionStatus: 'checking' } : i)
+        } : l));
+
+        const promos = await fetchItemPromotions(lists.find(l => l.id === listId)?.items.find(i => i.id === itemId)?.name || '');
+        setLists(prev => prev.map(l => l.id === listId ? {
+            ...l,
+            items: l.items.map(i => i.id === itemId ? { ...i, promotions: promos || [], promotionStatus: 'checked' } : i)
+        } : l));
+    };
+
+    // Render Logic
+    const renderScreen = () => {
+        switch (screen) {
+            case 'onboarding': return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+            case 'welcome': return <WelcomeScreen onComplete={handleAuthComplete} />;
+            case 'setupProfile': return <SetupProfileScreen onComplete={handleProfileComplete} />;
+            case 'lists': return (
+                <ShoppingListsScreen 
+                    lists={lists} 
+                    onSelectList={(id) => { setSelectedListId(id); setScreen('listDetail'); }}
+                    onAddList={handleAddList}
+                    onDeleteList={handleDeleteList}
+                    onImportLists={(newLists) => setLists([...lists, ...newLists])}
+                />
+            );
+            case 'listDetail': return selectedList ? (
+                <ListDetailScreen 
+                    list={selectedList}
+                    lists={lists}
+                    onBack={() => setScreen('lists')}
+                    onAddItem={() => { setEditingItem(null); setScreen('addItem'); }}
+                    onToggleItem={handleToggleItem}
+                    onEditItem={(item) => { setEditingItem(item); setScreen('addItem'); }}
+                    onDeleteItem={(itemId) => setLists(lists.map(l => l.id === selectedListId ? { ...l, items: l.items.filter(i => i.id !== itemId) } : l))}
+                    onEditList={() => setEditingList(selectedList)}
+                    onCheckPrice={handleCheckPrice}
+                    onShowPriceAlert={setAlertItem}
+                    onSearchPromotions={handleSearchPromotions}
+                    onShowPromotions={setPromoItem}
+                    onBulkUpdate={(lid, ids, updates) => setLists(lists.map(l => l.id === lid ? { ...l, items: l.items.map(i => ids.includes(i.id) ? { ...i, ...updates } : i) } : l))}
+                    onBulkDelete={(lid, ids) => setLists(lists.map(l => l.id === lid ? { ...l, items: l.items.filter(i => !ids.includes(i.id)) } : l))}
+                    onBulkMove={(src, dest, ids) => {
+                        const itemsToMove = lists.find(l => l.id === src)?.items.filter(i => ids.includes(i.id)) || [];
+                        setLists(lists.map(l => {
+                            if (l.id === src) return { ...l, items: l.items.filter(i => !ids.includes(i.id)) };
+                            if (l.id === dest) return { ...l, items: [...l.items, ...itemsToMove] };
+                            return l;
+                        }));
+                    }}
+                />
+            ) : null;
+            case 'addItem': return (
+                <AddItemScreen 
+                    item={editingItem}
+                    onSave={handleSaveItem}
+                    onCancel={() => setScreen('listDetail')}
+                    onDelete={(id) => {
+                        setLists(lists.map(l => l.id === selectedListId ? { ...l, items: l.items.filter(i => i.id !== id) } : l));
+                        setScreen('listDetail');
+                    }}
+                />
+            );
+            case 'dashboard': return <FinanceDashboardScreen 
+                transactions={[
+                    { id: '1', description: 'Supermercado Continente', amount: -45.60, date: 'Hoje', category: 'Alimentação', icon: CartIcon },
+                    { id: '2', description: 'Viagem Uber', amount: -12.40, date: 'Ontem', category: 'Transporte', icon: PlaneIcon },
+                ]} 
+                expenses={[
+                    { name: 'Alimentação', value: 120, color: '#2ECC71' },
+                    { name: 'Lazer', value: 45, color: '#3B82F6' }
+                ]}
+            />;
+            case 'profile': return <ProfileScreen />;
+            default: return null;
+        }
+    };
+
     const showNavBar = ['lists', 'dashboard', 'profile'].includes(screen);
 
     return (
-        <div className="h-screen w-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans">
-            <main className={`h-full w-full max-w-md mx-auto bg-light-bg dark:bg-dark-bg shadow-lg relative ${showNavBar ? 'pb-20' : ''}`}>
+        <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text max-w-md mx-auto shadow-2xl relative overflow-hidden">
+            <main className="flex-grow overflow-hidden h-full">
                 {renderScreen()}
-                {showNavBar && <BottomNavBar activeScreen={screen} setScreen={setScreen} />}
-                {isEditModalOpen && activeList && (
-                    <EditListModal 
-                        list={activeList}
-                        stores={stores}
-                        onClose={() => setIsEditModalOpen(false)}
-                        onSave={handleUpdateListDetails}
-                    />
-                )}
-                {priceAlertItem && (
-                    <PriceAlertModal
-                        item={priceAlertItem}
-                        onClose={() => setPriceAlertItem(null)}
-                    />
-                )}
-                {promotionsModalItem && (
-                    <PromotionsModal
-                        item={promotionsModalItem}
-                        onClose={() => setPromotionsModalItem(null)}
-                        onSelectPromotion={handleSelectPromotion}
-                    />
-                )}
             </main>
+            
+            {showNavBar && <BottomNavBar activeScreen={screen} setScreen={setScreen} />}
+
+            {editingList && (
+                <EditListModal 
+                    list={editingList}
+                    stores={initialStores}
+                    onClose={() => setEditingList(null)}
+                    onSave={(id, name, icon, storeId) => {
+                        setLists(lists.map(l => l.id === id ? { ...l, name, icon, storeId } : l));
+                        setEditingList(null);
+                    }}
+                />
+            )}
+
+            {alertItem && <PriceAlertModal item={alertItem} onClose={() => setAlertItem(null)} />}
+            {promoItem && (
+                <PromotionsModal 
+                    item={promoItem} 
+                    onClose={() => setPromoItem(null)} 
+                    onSelectPromotion={(promo) => {
+                        if (selectedListId && promoItem) {
+                            setLists(lists.map(l => l.id === selectedListId ? {
+                                ...l,
+                                items: l.items.map(i => i.id === promoItem.id ? { ...i, selectedPromotion: promo, price: promo.price || i.price } : i)
+                            } : l));
+                            setPromoItem(null);
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -6,6 +6,7 @@ import { suggestItemDetails, generateItemImage } from '../services/geminiService
 import { CameraIcon } from './icons/CameraIcon';
 import { SparkleIcon } from './icons/SparkleIcon';
 import { ImageCropperModal } from './ImageCropperModal';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface AddItemScreenProps {
     onSave: (item: ListItem) => void;
@@ -34,6 +35,9 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
     // Cropper State
     const [isCropperOpen, setIsCropperOpen] = useState(false);
     const [tempImageToCrop, setTempImageToCrop] = useState<string | null>(null);
+
+    // Confirmation State
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,7 +84,6 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
             };
             reader.readAsDataURL(file);
         }
-        // Reset input to allow selecting same file again
         if (event.target) event.target.value = '';
     };
 
@@ -96,17 +99,18 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
             id: item?.id || `item-${Date.now()}`,
             completed: item?.completed || false,
             promotionStatus: item?.promotionStatus || 'idle',
-        };
+        } as ListItem;
         onSave(itemToSave);
     };
     
-    const handleDelete = () => {
-        if (item && window.confirm(t('confirm_delete_item'))) {
+    const confirmDelete = () => {
+        if (item) {
             onDelete(item.id);
+            setIsDeleteConfirmOpen(false);
         }
     }
 
-    const handleChange = (field: keyof Omit<ListItem, 'id' | 'completed' | 'priceHistory' | 'alert' | 'source'>, value: string | number | undefined) => {
+    const handleChange = (field: keyof Omit<ListItem, 'id' | 'completed' | 'priceHistory' | 'alert' | 'source' | 'promotions' | 'promotionStatus' | 'selectedPromotion'>, value: string | number | undefined) => {
         setFormData(prev => ({...prev, [field]: value}));
     }
 
@@ -165,10 +169,13 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                         <button 
                             onClick={fetchSuggestion}
                             disabled={isFetchingSuggestion || !formData.name || formData.name.length < 2}
-                            className={`p-3 bg-primary/10 text-primary rounded-lg border-2 border-transparent hover:border-primary/30 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed`}
+                            className={`p-3 bg-primary/10 text-primary rounded-lg border-2 border-transparent hover:border-primary/30 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed group relative`}
                             title={t('ai_suggestions')}
                         >
                             <SparkleIcon className={`w-6 h-6 ${isFetchingSuggestion ? 'animate-pulse' : ''}`} />
+                            <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                                {t('ai_suggestions')}
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -180,7 +187,7 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                     </div>
                      <div>
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('unit')}</label>
-                        <select value={formData.unit} onChange={e => handleChange('unit', e.target.value)} className="w-full mt-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary appearance-none">
+                        <select value={formData.unit} onChange={e => handleChange('unit', e.target.value as any)} className="w-full mt-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary appearance-none">
                             {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
                         </select>
                     </div>
@@ -212,7 +219,7 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                 
                 {item && (
                     <div className="pt-8">
-                        <button onClick={handleDelete} className="w-full text-red-500 font-bold py-3 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-colors">{t('delete')}</button>
+                        <button onClick={() => setIsDeleteConfirmOpen(true)} className="w-full text-red-500 font-bold py-3 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-colors">{t('delete')}</button>
                     </div>
                 )}
             </div>
@@ -224,6 +231,14 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                     onCrop={handleCropComplete}
                 />
             )}
+
+            <ConfirmationModal 
+                isOpen={isDeleteConfirmOpen}
+                title={t('confirm_delete_item')}
+                message={`${t('confirm_delete_item_msg') || 'Tens a certeza que desejas apagar o artigo'} "${formData.name}"?`}
+                onConfirm={confirmDelete}
+                onCancel={() => setIsDeleteConfirmOpen(false)}
+            />
         </div>
     );
 };
