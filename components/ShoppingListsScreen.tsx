@@ -29,6 +29,7 @@ const ListCard: React.FC<{
 }> = ({ list, store, onClick, isEditing, onDelete }) => {
     const { t } = useApp();
     const description = store ? `${store.name} • ${list.items.length} ${t('articles')}` : `${list.items.length} ${t('articles')}`;
+    const budgetInfo = list.budgetCategory ? list.budgetCategory : null;
 
     return (
         <SwipeableItem 
@@ -67,7 +68,14 @@ const ListCard: React.FC<{
                 </div>
 
                 <div className="flex-grow overflow-hidden">
-                    <p className="font-bold text-light-text dark:text-dark-text leading-tight truncate">{list.name}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="font-bold text-light-text dark:text-dark-text leading-tight truncate">{list.name}</p>
+                        {budgetInfo && (
+                            <span className="text-[8px] font-black uppercase tracking-widest bg-primary/10 text-primary px-1.5 py-0.5 rounded-full shrink-0">
+                                {budgetInfo}
+                            </span>
+                        )}
+                    </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">{description}</p>
                 </div>
 

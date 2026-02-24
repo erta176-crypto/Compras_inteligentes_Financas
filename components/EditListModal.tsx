@@ -6,19 +6,21 @@ import { useApp } from '../context/AppContext';
 interface EditListModalProps {
     list: ShoppingList;
     stores: Store[];
+    budgetCategories: string[];
     onClose: () => void;
-    onSave: (listId: string, name: string, icon: string, storeId?: string) => void;
+    onSave: (listId: string, name: string, icon: string, storeId?: string, budgetCategory?: string) => void;
 }
 
-export const EditListModal: React.FC<EditListModalProps> = ({ list, stores, onClose, onSave }) => {
+export const EditListModal: React.FC<EditListModalProps> = ({ list, stores, budgetCategories, onClose, onSave }) => {
     const { t } = useApp();
     const [name, setName] = useState(list.name);
     const [icon, setIcon] = useState(list.icon);
     const [storeId, setStoreId] = useState(list.storeId);
+    const [budgetCategory, setBudgetCategory] = useState(list.budgetCategory);
 
     const handleSave = () => {
         if (name.trim()) {
-            onSave(list.id, name.trim(), icon.trim() || '📝', storeId);
+            onSave(list.id, name.trim(), icon.trim() || '📝', storeId, budgetCategory);
         }
     };
 
@@ -32,7 +34,10 @@ export const EditListModal: React.FC<EditListModalProps> = ({ list, stores, onCl
                         <input
                             type="text"
                             value={name}
-                            onChange={e => setName(e.target.value)}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setName(val.charAt(0).toUpperCase() + val.slice(1));
+                            }}
                             className="w-full mt-1 p-3 bg-light-bg dark:bg-dark-bg border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                     </div>
@@ -56,6 +61,19 @@ export const EditListModal: React.FC<EditListModalProps> = ({ list, stores, onCl
                             <option value="">{t('select_store')}</option>
                             {stores.map(store => (
                                 <option key={store.id} value={store.id}>{store.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('nav_budget')} ({t('category')})</label>
+                        <select
+                            value={budgetCategory || ''}
+                            onChange={e => setBudgetCategory(e.target.value)}
+                            className="w-full mt-1 p-3 bg-light-bg dark:bg-dark-bg border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary appearance-none"
+                        >
+                            <option value="">{t('select_category')}</option>
+                            {budgetCategories.map((cat, idx) => (
+                                <option key={idx} value={cat}>{cat}</option>
                             ))}
                         </select>
                     </div>

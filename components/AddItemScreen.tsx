@@ -1,9 +1,10 @@
 
 import React, { useState, useCallback, useRef } from 'react';
-import { ListItem } from '../types';
+import { ListItem, Promotion } from '../types';
 import { useApp } from '../context/AppContext';
-import { suggestItemDetails, generateItemImage } from '../services/geminiService';
+import { suggestItemDetails, generateItemImage, fetchItemPrice, fetchItemPromotions } from '../services/geminiService';
 import { CameraIcon } from './icons/CameraIcon';
+import { SearchIcon } from './icons/SearchIcon';
 import { SparkleIcon } from './icons/SparkleIcon';
 import { ImageCropperModal } from './ImageCropperModal';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -15,7 +16,7 @@ interface AddItemScreenProps {
     item?: ListItem | null;
 }
 
-const defaultItem: Omit<ListItem, 'id' | 'completed'> = {
+const defaultItem: Omit<ListItem, 'id' | 'completed' | 'promotionStatus'> = {
     name: '',
     quantity: 1,
     unit: 'un',
@@ -24,13 +25,28 @@ const defaultItem: Omit<ListItem, 'id' | 'completed'> = {
     image: undefined,
 };
 
-const units: ListItem['unit'][] = ['un', 'kg', 'g', 'L', 'cx'];
+// Updated units based on the image provided
+const units: ListItem['unit'][] = ['kg', 'lt', 'un', 'cx', 'dz', 'pct', 'ml', 'g'];
+
+const unitLabels: Record<ListItem['unit'], string> = {
+    kg: 'Kg',
+    lt: 'Lt',
+    un: 'Un',
+    cx: 'Cx',
+    dz: 'Dz',
+    pct: 'Pct',
+    ml: 'Ml',
+    g: 'G'
+};
 
 export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, onDelete, item }) => {
     const { t, categories } = useApp();
     const [formData, setFormData] = useState(item ? { ...item } : { ...defaultItem });
     const [isFetchingSuggestion, setIsFetchingSuggestion] = useState(false);
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    const [isSearchingPrice, setIsSearchingPrice] = useState(false);
+    const [foundPromotions, setFoundPromotions] = useState<Promotion[]>([]);
+    const [showPromotions, setShowPromotions] = useState(false);
     
     // Cropper State
     const [isCropperOpen, setIsCropperOpen] = useState(false);
@@ -90,6 +106,49 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
     const handleCropComplete = (croppedImage: string) => {
         handleChange('image', croppedImage);
         setTempImageToCrop(null);
+    };
+
+    const handleSearchPrice = async () => {
+        if (!formData.name) return;
+        setIsSearchingPrice(true);
+        setFoundPromotions([]);
+        try {
+            const [priceResult, promotionsResult] = await Promise.all([
+                fetchItemPrice(formData.name),
+                fetchItemPromotions(formData.name)
+            ]);
+
+            const promotions: Promotion[] = promotionsResult || [];
+            
+            if (priceResult && priceResult.price) {
+                promotions.unshift({
+                    id: 'price-check',
+                    store: priceResult.source?.title || 'Preço Médio',
+                    description: 'Preço encontrado online',
+                    price: priceResult.price,
+                    date: new Date().toISOString(),
+                    source: priceResult.source
+                });
+            }
+
+            if (promotions.length > 0) {
+                setFoundPromotions(promotions);
+                setShowPromotions(true);
+            } else {
+                alert(t('no_prices_found') || "Não foram encontrados preços online.");
+            }
+        } catch (error) {
+            console.error("Error searching price", error);
+        } finally {
+            setIsSearchingPrice(false);
+        }
+    };
+
+    const handleSelectPromotion = (promo: Promotion) => {
+        if (promo.price) {
+            handleChange('price', promo.price);
+        }
+        setShowPromotions(false);
     };
 
     const handleSave = () => {
@@ -163,7 +222,10 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                             type="text" 
                             placeholder="Ex: Maçãs Gala"
                             value={formData.name} 
-                            onChange={e => handleChange('name', e.target.value)} 
+                            onChange={e => {
+                                const val = e.target.value;
+                                handleChange('name', val.charAt(0).toUpperCase() + val.slice(1));
+                            }} 
                             className="flex-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all" 
                         />
                         <button 
@@ -183,21 +245,50 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('quantity')}</label>
-                        <input type="number" value={formData.quantity} onChange={e => handleChange('quantity', parseFloat(e.target.value))} className="w-full mt-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                        <input 
+                            type="number" 
+                            value={formData.quantity === undefined || isNaN(formData.quantity) ? '' : formData.quantity} 
+                            onChange={e => {
+                                const val = parseFloat(e.target.value);
+                                handleChange('quantity', isNaN(val) ? undefined : val);
+                            }} 
+                            className="w-full mt-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" 
+                        />
                     </div>
                      <div>
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('unit')}</label>
                         <select value={formData.unit} onChange={e => handleChange('unit', e.target.value as any)} className="w-full mt-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary appearance-none">
-                            {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+                            {units.map(u => <option key={u} value={u}>{unitLabels[u]}</option>)}
                         </select>
                     </div>
                 </div>
 
-                <div>
+                <div className="relative">
                     <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('price_optional')}</label>
-                    <div className="relative mt-1">
-                        <input type="number" step="0.01" placeholder="0.00" value={formData.price || ''} onChange={e => handleChange('price', parseFloat(e.target.value))} className="w-full p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary pr-10" />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">€</span>
+                    <div className="flex gap-2 mt-1">
+                        <div className="relative flex-1">
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                placeholder="0.00" 
+                                value={formData.price === undefined || isNaN(formData.price) ? '' : formData.price} 
+                                onChange={e => {
+                                    const val = parseFloat(e.target.value);
+                                    handleChange('price', isNaN(val) ? undefined : val);
+                                }} 
+                                className="w-full p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary pr-10" 
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">€</span>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={handleSearchPrice}
+                            disabled={isSearchingPrice || !formData.name}
+                            className="p-3 bg-blue-500/10 text-blue-500 rounded-lg disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center min-w-[3rem]"
+                            title={t('search_price_online') || "Pesquisar Preço Online"}
+                        >
+                            {isSearchingPrice ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div> : <SearchIcon className="w-5 h-5" />}
+                        </button>
                     </div>
                 </div>
                 
@@ -239,6 +330,38 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                 onConfirm={confirmDelete}
                 onCancel={() => setIsDeleteConfirmOpen(false)}
             />
+
+            {showPromotions && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-end sm:items-center justify-center p-4" onClick={() => setShowPromotions(false)}>
+                    <div className="bg-light-surface dark:bg-dark-surface w-full max-w-md rounded-t-[40px] sm:rounded-[40px] p-6 animate-in slide-in-from-bottom duration-300 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black">{t('online_prices') || "Preços Online"}</h3>
+                            <button onClick={() => setShowPromotions(false)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full">
+                                <span className="sr-only">Close</span>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            {foundPromotions.map((promo, idx) => (
+                                <button 
+                                    key={idx}
+                                    onClick={() => handleSelectPromotion(promo)}
+                                    className="w-full text-left p-4 bg-light-bg dark:bg-dark-bg rounded-2xl border border-gray-100 dark:border-gray-800 active:scale-95 transition-all flex justify-between items-center group hover:border-primary/50"
+                                >
+                                    <div>
+                                        <p className="font-bold text-sm">{promo.store}</p>
+                                        <p className="text-xs text-gray-500 line-clamp-1">{promo.description}</p>
+                                        {promo.source && <p className="text-[10px] text-blue-500 mt-1">{promo.source.title}</p>}
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-black text-lg text-primary">{promo.price?.toFixed(2)}€</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

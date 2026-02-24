@@ -91,7 +91,10 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
                         <input 
                             type="text" 
                             value={newStoreName}
-                            onChange={e => setNewStoreName(e.target.value)}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setNewStoreName(val.charAt(0).toUpperCase() + val.slice(1));
+                            }}
                             placeholder={t('store_name')}
                             className="flex-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                         />
@@ -146,7 +149,10 @@ export const ManageStoresModal: React.FC<{ onClose: () => void }> = ({ onClose }
                                                 type="text" 
                                                 autoFocus
                                                 value={editingName}
-                                                onChange={e => setEditingName(e.target.value)}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setEditingName(val.charAt(0).toUpperCase() + val.slice(1));
+                                                }}
                                                 className="flex-1 p-2 bg-white dark:bg-gray-800 border border-primary rounded-lg text-sm focus:outline-none"
                                             />
                                             <button onClick={saveEdit} className="bg-primary text-white p-2 rounded-lg shadow-sm">

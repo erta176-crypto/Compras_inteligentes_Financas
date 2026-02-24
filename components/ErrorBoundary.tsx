@@ -1,10 +1,8 @@
-
-import React, { Component, ErrorInfo, ReactNode } from "react";
+import * as React from "react";
 import { RefreshIcon } from "./icons/RefreshIcon";
 
 interface Props {
-  // children is made optional to allow wrapping components correctly
-  children?: ReactNode;
+  children?: React.ReactNode;
 }
 
 interface State {
@@ -15,37 +13,32 @@ interface State {
 /**
  * ErrorBoundary component to catch JavaScript errors in child components.
  */
-// Fix: Use direct Component import to ensure that the class correctly inherits 
-// methods like setState and properties like state and props from the React library.
-export class ErrorBoundary extends Component<Props, State> {
-  // Declare state as a class property for the TypeScript compiler
-  public state: State = {
-    hasError: false,
-    error: null
-  };
-
+export class ErrorBoundary extends (React.Component as any) {
   constructor(props: Props) {
     super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log the error to the console for debugging purposes
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  // Fix: setState is inherited from Component and now correctly recognized
-  handleReload = () => {
-    this.setState({ hasError: false });
+  // Use setState to reset the error state when user triggers a reload
+  public handleReload = () => {
+    this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
-  render() {
-    // Fix: state access is correctly recognized via inheritance from Component
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="h-screen w-screen flex flex-col items-center justify-center p-8 bg-light-bg dark:bg-dark-bg text-center">
@@ -67,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: props access is correctly recognized via inheritance from Component
+    // Access children through props
     return this.props.children;
   }
 }

@@ -19,12 +19,12 @@ export const suggestItemDetails = async (itemName: string, availableCategories: 
         properties: {
             category: {
                 type: Type.STRING,
-                description: "The most likely category for the grocery item.",
+                description: "A categoria mais provável para o item de mercearia.",
                 enum: availableCategories
             },
             unit: {
                 type: Type.STRING,
-                description: "The most common unit of measurement for this item.",
+                description: "A unidade de medida mais comum.",
                 enum: availableUnits
             },
         },
@@ -34,9 +34,9 @@ export const suggestItemDetails = async (itemName: string, availableCategories: 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: `For the grocery item "${itemName}", suggest a common category and unit from the following options:
-            Categories: ${availableCategories.join(', ')}
-            Units: ${availableUnits.join(', ')}`,
+            contents: `Para o item de compras "${itemName}", sugere a categoria e unidade correta baseando-te nos hábitos de consumo em Portugal.
+            Categorias disponíveis: ${availableCategories.join(', ')}
+            Unidades: ${availableUnits.join(', ')}`,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: itemSuggestionSchema,
@@ -46,26 +46,13 @@ export const suggestItemDetails = async (itemName: string, availableCategories: 
         if (jsonString) return JSON.parse(jsonString);
         return null;
     } catch (error) {
-        console.error("Error fetching item suggestions from Gemini API:", error);
+        console.error("Error fetching item suggestions:", error);
         return null;
     }
 };
 
-const priceCheckSchema = {
-    type: Type.OBJECT,
-    properties: {
-        price: {
-            type: Type.NUMBER,
-            description: "The average current price of the item in euros."
-        }
-    },
-    required: ["price"]
-};
-
-// Helper to safely parse JSON from model output that might contain markdown
 const parseJSON = (text: string) => {
     try {
-        // Remove markdown code blocks if present
         const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleaned);
     } catch (e) {
@@ -73,52 +60,42 @@ const parseJSON = (text: string) => {
     }
 };
 
+const parsePrice = (value: any): number | undefined => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        // Remove currency symbols and other non-numeric chars except dot and comma
+        const cleaned = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? undefined : parsed;
+    }
+    return undefined;
+};
+
 export const fetchItemPrice = async (itemName: string): Promise<{ price: number; source: { uri: string; title: string } | null } | null> => {
     if (!API_KEY) return null;
 
-    // First attempt: Try with Google Search for real-time data
     try {
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `What is the current average price for "${itemName}" in euros? Return a strictly valid JSON object with a "price" property (number). Example: {"price": 2.50}. Do not include markdown formatting.`,
+            contents: `Pesquisa o preço médio atual para "${itemName}" em Portugal. Consulta obrigatoriamente o site "supersave.pt" e grandes superfícies como Continente ou Pingo Doce. Devolve apenas um JSON com a propriedade "price" (number).`,
             config: {
                 tools: [{ googleSearch: {} }],
-                // Note: We do NOT set responseMimeType: 'application/json' here because 
-                // it can cause permission errors or empty responses when combined with googleSearch.
             },
         });
 
         const sourceChunk = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.[0]?.web;
-        const source = sourceChunk ? { uri: sourceChunk.uri, title: sourceChunk.title || 'Source' } : null;
+        const source = sourceChunk ? { uri: sourceChunk.uri, title: sourceChunk.title || 'SuperSave.pt' } : null;
 
         const parsed = parseJSON(response.text || '');
         if (parsed && typeof parsed.price !== 'undefined') {
-            return { price: Number(parsed.price), source };
+            const price = parsePrice(parsed.price);
+            if (price !== undefined) {
+                return { price, source };
+            }
         }
     } catch (error: any) {
-        // Only log warning, as we will try fallback
-        console.warn("Gemini Search Grounding failed (likely permission/403 or unavailable), falling back to estimate.", error.message);
+        console.warn("Gemini Search Grounding failed, using general knowledge.");
     }
-
-    // Fallback: Estimate based on model knowledge without search
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: `Estimate the average price for "${itemName}" in euros based on general knowledge.`,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: priceCheckSchema,
-            },
-        });
-        const jsonString = response.text;
-        if (jsonString) {
-            const parsed = JSON.parse(jsonString);
-            return { price: Number(parsed.price), source: null };
-        }
-    } catch (error) {
-        console.error("Error fetching fallback item price from Gemini API:", error);
-    }
-    
     return null;
 };
 
@@ -128,9 +105,9 @@ export const fetchItemPromotions = async (itemName: string): Promise<Promotion[]
     try {
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Find current promotions for "${itemName}" at major Portuguese supermarkets like Continente, Pingo Doce, and Lidl. 
-            Return a strictly valid JSON object with a "promotions" array containing objects with "store", "description", and optional "price". 
-            Do not use markdown code blocks.`,
+            contents: `Encontra promoções ativas ou os preços mais baixos para "${itemName}" em Portugal. 
+            É MANDATÓRIO verificar o site "https://supersave.pt/" para comparação. 
+            Devolve um JSON com um array "promotions", onde cada objeto tem "store", "description" e "price".`,
             config: {
                 tools: [{ googleSearch: {} }],
             },
@@ -138,20 +115,20 @@ export const fetchItemPromotions = async (itemName: string): Promise<Promotion[]
 
         const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
         const source = groundingChunks && groundingChunks.length > 0 && groundingChunks[0].web
-            ? { uri: groundingChunks[0].web.uri, title: groundingChunks[0].web.title || 'Source' }
-            : { uri: '', title: 'Source not available' };
+            ? { uri: groundingChunks[0].web.uri, title: groundingChunks[0].web.title || 'SuperSave.pt' }
+            : { uri: 'https://supersave.pt/', title: 'SuperSave.pt' };
         
         const parsed = parseJSON(response.text || '');
         if (parsed && Array.isArray(parsed.promotions)) {
             return parsed.promotions.map((promo: any) => ({ 
                 ...promo, 
-                price: promo.price ? Number(promo.price) : undefined,
+                price: parsePrice(promo.price),
                 source 
             }));
         }
         return [];
     } catch (error) {
-        console.error("Error fetching item promotions from Gemini API:", error);
+        console.error("Error fetching promotions:", error);
         return [];
     }
 };
@@ -161,19 +138,11 @@ export const generateItemImage = async (itemName: string): Promise<string | null
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
-            contents: {
-                parts: [{ text: `a clear, high-quality image of ${itemName} on a clean white background` }]
-            },
+            contents: { parts: [{ text: `produto isolado de ${itemName} para lista de compras, fundo branco, realista` }] }
         });
         for (const part of response.candidates[0].content.parts) {
-            if (part.inlineData) {
-                const base64EncodeString: string = part.inlineData.data;
-                return `data:image/png;base64,${base64EncodeString}`;
-            }
+            if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
         }
         return null;
-    } catch (error) {
-        console.error("Error generating image from Gemini API:", error);
-        return null;
-    }
+    } catch (error) { return null; }
 };

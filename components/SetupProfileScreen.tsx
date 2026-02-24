@@ -64,7 +64,10 @@ export const SetupProfileScreen: React.FC<SetupProfileScreenProps> = ({ onComple
                             <input 
                                 type="text" 
                                 value={name}
-                                onChange={(e) => setName(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setName(val.charAt(0).toUpperCase() + val.slice(1));
+                                }}
                                 placeholder="Seu Nome"
                                 className="w-full mt-1 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary transition-all text-light-text dark:text-dark-text font-bold"
                             />

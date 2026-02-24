@@ -5,7 +5,9 @@ import { UserIcon } from './icons/UserIcon';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
 import { ManageStoresModal } from './ManageStoresModal';
 import { ManageCategoriesModal } from './ManageCategoriesModal';
+import { ManageBudgetCategoriesModal } from './ManageBudgetCategoriesModal';
 import { ConfirmationModal } from './ConfirmationModal';
+import { UserManualModal } from './UserManualModal';
 
 const ProfileRow: React.FC<{ label: string; value: string; isNav?: boolean; onClick?: () => void }> = ({ label, value, isNav, onClick }) => (
     <div className={`flex justify-between items-center py-3 ${onClick ? 'cursor-pointer active:opacity-70' : ''}`} onClick={onClick}>
@@ -35,7 +37,9 @@ export const ProfileScreen: React.FC = () => {
     const isDarkMode = theme === 'dark';
     const [isManageStoresOpen, setIsManageStoresOpen] = useState(false);
     const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+    const [isManageBudgetCategoriesOpen, setIsManageBudgetCategoriesOpen] = useState(false);
     const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+    const [isUserManualOpen, setIsUserManualOpen] = useState(false);
 
     const displayName = user?.name || t('default_user');
     const displayEmail = user?.email || 'utilizador@email.pt';
@@ -51,9 +55,9 @@ export const ProfileScreen: React.FC = () => {
 
     return (
         <div className="h-full overflow-y-auto bg-light-bg dark:bg-dark-bg p-6 pb-24 animate-in fade-in duration-500">
-            <h1 className="text-3xl font-black mb-8 tracking-tight">{t('my_profile')}</h1>
+            <h1 className="text-3xl font-black mb-8 tracking-tight">{t('nav_settings')}</h1>
 
-            <div className="flex items-center bg-light-surface dark:bg-dark-surface p-5 rounded-3xl mb-8 shadow-sm border border-gray-100 dark:border-gray-800">
+            <div className="flex items-center bg-light-surface dark:bg-dark-surface p-6 rounded-[40px] mb-8 shadow-sm border border-gray-100 dark:border-gray-800">
                  <div className="w-20 h-20 rounded-[28px] bg-primary/10 flex items-center justify-center mr-5 overflow-hidden border-2 border-white dark:border-gray-700 shadow-lg">
                     {user?.photo ? (
                         <img src={user.photo} alt="Avatar" className="w-full h-full object-cover" />
@@ -68,14 +72,14 @@ export const ProfileScreen: React.FC = () => {
             </div>
 
             <div className="space-y-6">
-                <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-3xl divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
-                    <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-4">{t('personal_info')}</h3>
+                <div className="bg-light-surface dark:bg-dark-surface p-8 rounded-[40px] divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
+                    <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-6">{t('personal_info')}</h3>
                     <ProfileRow label={t('full_name')} value={displayName} isNav onClick={() => {}} />
                     <ProfileRow label={t('email')} value={displayEmail} isNav onClick={() => {}} />
                 </div>
 
-                <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-3xl divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
-                    <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-4">{t('security')}</h3>
+                <div className="bg-light-surface dark:bg-dark-surface p-8 rounded-[40px] divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
+                    <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-6">{t('security')}</h3>
                     <ToggleRow 
                         label={t('enable_biometrics')} 
                         description={t('biometrics_desc')} 
@@ -84,23 +88,27 @@ export const ProfileScreen: React.FC = () => {
                     />
                 </div>
 
-                <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-3xl divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
-                    <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-4">CONFIGURAÇÕES</h3>
+                <div className="bg-light-surface dark:bg-dark-surface p-8 rounded-[40px] divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
+                    <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-6">{t('settings')}</h3>
                     <ProfileRow label={t('manage_stores')} value="" isNav onClick={() => setIsManageStoresOpen(true)} />
                     <ProfileRow label={t('manage_categories')} value="" isNav onClick={() => setIsManageCategoriesOpen(true)} />
+                    <ProfileRow label={t('manage_budget_categories')} value="" isNav onClick={() => setIsManageBudgetCategoriesOpen(true)} />
+                    <ProfileRow label={t('user_manual')} value="" isNav onClick={() => setIsUserManualOpen(true)} />
                     <ToggleRow label={t('dark_mode')} enabled={isDarkMode} onToggle={() => setTheme(isDarkMode ? 'light' : 'dark')} />
                 </div>
             </div>
             
             <button 
                 onClick={() => setIsLogoutConfirmOpen(true)}
-                className="w-full text-red-500 font-black py-5 mt-10 bg-white dark:bg-dark-surface rounded-3xl shadow-sm active:scale-95 transition-all border border-red-50 dark:border-red-900/20"
+                className="w-full text-red-500 font-black py-6 mt-10 bg-white dark:bg-dark-surface rounded-[40px] shadow-sm active:scale-95 transition-all border border-red-50 dark:border-red-900/20"
             >
                 {t('terminate_session')}
             </button>
 
             {isManageStoresOpen && <ManageStoresModal onClose={() => setIsManageStoresOpen(false)} />}
             {isManageCategoriesOpen && <ManageCategoriesModal onClose={() => setIsManageCategoriesOpen(false)} />}
+            {isManageBudgetCategoriesOpen && <ManageBudgetCategoriesModal onClose={() => setIsManageBudgetCategoriesOpen(false)} />}
+            {isUserManualOpen && <UserManualModal onClose={() => setIsUserManualOpen(false)} />}
 
             <ConfirmationModal 
                 isOpen={isLogoutConfirmOpen}

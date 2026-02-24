@@ -160,8 +160,11 @@ export const ImageCropperModal: React.FC<ImageCropperModalProps> = ({ imageSrc, 
                             min="0.1" 
                             max="3" 
                             step="0.05" 
-                            value={zoom} 
-                            onChange={(e) => setZoom(parseFloat(e.target.value))}
+                            value={isNaN(zoom) ? 1 : zoom} 
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setZoom(isNaN(val) ? 1 : val);
+                            }}
                             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                     </div>

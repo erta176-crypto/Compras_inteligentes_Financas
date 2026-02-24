@@ -24,9 +24,11 @@ export interface Category {
 }
 
 export interface Promotion {
+    id?: string;
     store: string;
     description: string;
     price?: number;
+    date?: string;
     source: {
         uri: string;
         title: string;
@@ -37,7 +39,7 @@ export interface ListItem {
     id:string;
     name: string;
     quantity: number;
-    unit: 'un' | 'kg' | 'g' | 'L' | 'cx';
+    unit: 'kg' | 'lt' | 'un' | 'cx' | 'dz' | 'pct' | 'ml' | 'g';
     category: string;
     price?: number;
     completed: boolean;
@@ -64,6 +66,7 @@ export interface ShoppingList {
     status: 'active' | 'archived' | 'shared';
     description?: string;
     storeId?: string;
+    budgetCategory?: string;
 }
 
 export interface Transaction {
@@ -72,16 +75,38 @@ export interface Transaction {
     description: string;
     amount: number;
     date: string;
-    icon: React.FC<{className?: string}>;
+    type: 'expense' | 'income';
+    isRecurring?: boolean;
+    recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    storeId?: string;
 }
 
-export interface ExpenseCategory {
-    name: string;
-    value: number;
-    color: string;
+export interface Budget {
+    id: string;
+    category: string;
+    limit: number;
+    spent: number;
+    period: 'monthly';
 }
 
-export type AppScreen = 'onboarding' | 'welcome' | 'setupProfile' | 'lists' | 'listDetail' | 'addItem' | 'dashboard' | 'profile';
+export interface Insight {
+    id: string;
+    type: 'saving' | 'warning' | 'tip' | 'optimization';
+    title: string;
+    description: string;
+    impact?: string;
+    category?: string;
+    date: string;
+}
+
+export interface FinancialSummary {
+    totalBalance: number;
+    monthlySpending: number;
+    monthlyIncome: number;
+    healthScore: number;
+}
+
+export type AppScreen = 'onboarding' | 'welcome' | 'setupProfile' | 'lists' | 'listDetail' | 'addItem' | 'dashboard' | 'budget' | 'settings';
 
 export type Language = 'en' | 'pt';
 
@@ -93,7 +118,7 @@ export interface AppContextType {
     theme: Theme;
     setTheme: (theme: Theme) => void;
     user: User | null;
-    loginWithGoogle: () => Promise<void>;
+    loginWithGoogle: (credential?: string) => Promise<void>;
     loginWithBiometrics: () => Promise<boolean>;
     logout: () => void;
     updateUser: (updates: Partial<User>) => void;
@@ -102,5 +127,14 @@ export interface AppContextType {
     setStores: React.Dispatch<React.SetStateAction<Store[]>>;
     categories: Category[];
     setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+    lists: ShoppingList[];
+    setLists: React.Dispatch<React.SetStateAction<ShoppingList[]>>;
+    transactions: Transaction[];
+    setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+    budgets: Budget[];
+    setBudgets: React.Dispatch<React.SetStateAction<Budget[]>>;
+    budgetsWithSpent: Budget[];
+    budgetCategories: string[];
+    setBudgetCategories: React.Dispatch<React.SetStateAction<string[]>>;
     login: (user: User) => void;
 }

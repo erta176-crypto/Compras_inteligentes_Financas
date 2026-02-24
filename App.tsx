@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { AppScreen, ShoppingList, ListItem, Transaction, ExpenseCategory } from './types';
+import { AppScreen, ShoppingList, ListItem } from './types';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { SetupProfileScreen } from './components/SetupProfileScreen';
@@ -9,71 +9,76 @@ import { ShoppingListsScreen } from './components/ShoppingListsScreen';
 import { ListDetailScreen } from './components/ListDetailScreen';
 import { AddItemScreen } from './components/AddItemScreen';
 import { FinanceDashboardScreen } from './components/FinanceDashboardScreen';
+import { BudgetScreen } from './components/BudgetScreen';
 import { ProfileScreen } from './components/ProfileScreen';
 import { BottomNavBar } from './components/BottomNavBar';
 import { EditListModal } from './components/EditListModal';
 import { PriceAlertModal } from './components/PriceAlertModal';
 import { PromotionsModal } from './components/PromotionsModal';
 import { initialStores } from './constants';
-import { fetchItemPrice, fetchItemPromotions } from './services/geminiService';
-import { CartIcon } from './components/icons/CartIcon';
-import { PlaneIcon } from './components/icons/PlaneIcon';
+import { fetchItemPrice, fetchItemPromotions, suggestItemDetails } from './services/geminiService';
 
 const AppContent: React.FC = () => {
-    const { user, t } = useApp();
+    const { user, t, lists, setLists, categories, budgetCategories, stores } = useApp();
     const [screen, setScreen] = useState<AppScreen>('welcome');
-    const [lists, setLists] = useState<ShoppingList[]>([]);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [editingItem, setEditingItem] = useState<ListItem | null>(null);
     const [editingList, setEditingList] = useState<ShoppingList | null>(null);
     const [alertItem, setAlertItem] = useState<ListItem | null>(null);
     const [promoItem, setPromoItem] = useState<ListItem | null>(null);
     
-    // Auth state persistence and initialization
     useEffect(() => {
         const onboardingDone = localStorage.getItem('onboarding_done');
-        const storedLists = localStorage.getItem('shopping_lists');
-        
-        if (storedLists) {
-            setLists(JSON.parse(storedLists));
-        }
-
-        if (!onboardingDone) {
-            setScreen('onboarding');
-        } else if (!user) {
-            setScreen('welcome');
-        } else if (!user.isProfileComplete) {
-            setScreen('setupProfile');
-        } else {
-            setScreen('lists');
-        }
+        if (!onboardingDone) setScreen('onboarding');
+        else if (!user) setScreen('welcome');
+        else if (!user.isProfileComplete) setScreen('setupProfile');
+        else if (screen === 'welcome' || screen === 'onboarding') setScreen('dashboard');
     }, [user]);
 
-    useEffect(() => {
-        if (lists.length > 0) {
-            localStorage.setItem('shopping_lists', JSON.stringify(lists));
-        }
-    }, [lists]);
+    const handleQuickAdd = async (listId: string, name: string) => {
+        const newItemId = `item-${Date.now()}`;
+        const newItem: ListItem = {
+            id: newItemId,
+            name: name,
+            quantity: 1,
+            unit: 'un',
+            category: 'Mercearia',
+            completed: false,
+            promotionStatus: 'idle'
+        };
 
-    // Derived State
+        setLists(prev => prev.map(l => {
+            if (l.id !== listId) return l;
+            const updatedItems = [...l.items, newItem];
+            return {
+                ...l,
+                items: updatedItems,
+                itemCount: updatedItems.length,
+                progress: updatedItems.length > 0 ? Math.round((updatedItems.filter(i => i.completed).length / updatedItems.length) * 100) : 0
+            };
+        }));
+
+        const availableCatNames = categories.map(c => c.name);
+        // Updated unit list based on the image provided
+        const availableUnits: ListItem['unit'][] = ['kg', 'lt', 'un', 'cx', 'dz', 'pct', 'ml', 'g'];
+        const suggestion = await suggestItemDetails(name, availableCatNames, availableUnits);
+        
+        if (suggestion) {
+            setLists(prev => prev.map(l => {
+                if (l.id !== listId) return l;
+                return {
+                    ...l,
+                    items: l.items.map(i => i.id === newItemId ? { ...i, category: suggestion.category, unit: suggestion.unit as any } : i)
+                };
+            }));
+        }
+    };
+
     const selectedList = lists.find(l => l.id === selectedListId);
 
-    // Actions
     const handleOnboardingComplete = () => {
         localStorage.setItem('onboarding_done', 'true');
         setScreen('welcome');
-    };
-
-    const handleAuthComplete = () => {
-        if (user && !user.isProfileComplete) {
-            setScreen('setupProfile');
-        } else {
-            setScreen('lists');
-        }
-    };
-
-    const handleProfileComplete = () => {
-        setScreen('lists');
     };
 
     const handleAddList = () => {
@@ -92,21 +97,16 @@ const AppContent: React.FC = () => {
         setScreen('listDetail');
     };
 
-    const handleDeleteList = (id: string) => {
-        setLists(lists.filter(l => l.id !== id));
-    };
-
     const handleToggleItem = (listId: string, itemId: string) => {
         setLists(lists.map(list => {
             if (list.id !== listId) return list;
             const updatedItems = list.items.map(item => 
                 item.id === itemId ? { ...item, completed: !item.completed } : item
             );
-            const completedCount = updatedItems.filter(i => i.completed).length;
             return {
                 ...list,
                 items: updatedItems,
-                progress: updatedItems.length > 0 ? Math.round((completedCount / updatedItems.length) * 100) : 0
+                progress: updatedItems.length > 0 ? Math.round((updatedItems.filter(i => i.completed).length / updatedItems.length) * 100) : 0
             };
         }));
     };
@@ -120,12 +120,14 @@ const AppContent: React.FC = () => {
                 ? list.items.map(i => i.id === itemToSave.id ? itemToSave : i)
                 : [...list.items, itemToSave];
             
+            // Fix: Calculate completedCount locally to update list statistics correctly
             const completedCount = updatedItems.filter(i => i.completed).length;
+
             return {
                 ...list,
                 items: updatedItems,
                 itemCount: updatedItems.length,
-                estimatedCost: updatedItems.reduce((acc, i) => acc + (i.price || 0), 0),
+                estimatedCost: updatedItems.reduce((acc, i) => acc + ((i.price || 0) * i.quantity), 0),
                 progress: updatedItems.length > 0 ? Math.round((completedCount / updatedItems.length) * 100) : 0
             };
         }));
@@ -134,11 +136,9 @@ const AppContent: React.FC = () => {
     };
 
     const handleCheckPrice = async (listId: string, itemId: string) => {
-        const list = lists.find(l => l.id === listId);
-        const item = list?.items.find(i => i.id === itemId);
+        const item = lists.find(l => l.id === listId)?.items.find(i => i.id === itemId);
         if (!item) return;
 
-        // Set checking state locally
         setLists(prev => prev.map(l => l.id === listId ? {
             ...l,
             items: l.items.map(i => i.id === itemId ? { ...i, alert: 'checking' } : i)
@@ -150,39 +150,51 @@ const AppContent: React.FC = () => {
                 ...l,
                 items: l.items.map(i => {
                     if (i.id !== itemId) return i;
-                    const history = [...(i.priceHistory || []), i.price || result.price];
                     const alert = result.price < (i.price || result.price) ? 'down' : result.price > (i.price || result.price) ? 'up' : 'stable';
-                    return { ...i, price: result.price, priceHistory: history, alert, source: result.source };
+                    return { ...i, price: result.price, alert, source: result.source };
                 })
             } : l));
         }
     };
 
     const handleSearchPromotions = async (listId: string, itemId: string) => {
+        const list = lists.find(l => l.id === listId);
+        const item = list?.items.find(i => i.id === itemId);
+        if (!item) return;
+
         setLists(prev => prev.map(l => l.id === listId ? {
             ...l,
             items: l.items.map(i => i.id === itemId ? { ...i, promotionStatus: 'checking' } : i)
         } : l));
 
-        const promos = await fetchItemPromotions(lists.find(l => l.id === listId)?.items.find(i => i.id === itemId)?.name || '');
-        setLists(prev => prev.map(l => l.id === listId ? {
-            ...l,
-            items: l.items.map(i => i.id === itemId ? { ...i, promotions: promos || [], promotionStatus: 'checked' } : i)
-        } : l));
+        try {
+            const promos = await fetchItemPromotions(item.name);
+            setLists(prev => prev.map(l => l.id === listId ? {
+                ...l,
+                items: l.items.map(i => i.id === itemId ? { ...i, promotions: promos || [], promotionStatus: 'checked' } : i)
+            } : l));
+        } catch (error) {
+            console.error("Failed to fetch promotions", error);
+            setLists(prev => prev.map(l => l.id === listId ? {
+                ...l,
+                items: l.items.map(i => i.id === itemId ? { ...i, promotionStatus: 'idle' } : i)
+            } : l));
+        }
     };
 
-    // Render Logic
     const renderScreen = () => {
         switch (screen) {
             case 'onboarding': return <OnboardingScreen onComplete={handleOnboardingComplete} />;
-            case 'welcome': return <WelcomeScreen onComplete={handleAuthComplete} />;
-            case 'setupProfile': return <SetupProfileScreen onComplete={handleProfileComplete} />;
+            case 'welcome': return <WelcomeScreen onComplete={() => setScreen('dashboard')} />;
+            case 'setupProfile': return <SetupProfileScreen onComplete={() => setScreen('dashboard')} />;
+            case 'dashboard': return <FinanceDashboardScreen />;
+            case 'budget': return <BudgetScreen />;
             case 'lists': return (
                 <ShoppingListsScreen 
                     lists={lists} 
                     onSelectList={(id) => { setSelectedListId(id); setScreen('listDetail'); }}
                     onAddList={handleAddList}
-                    onDeleteList={handleDeleteList}
+                    onDeleteList={(id) => setLists(lists.filter(l => l.id !== id))}
                     onImportLists={(newLists) => setLists([...lists, ...newLists])}
                 />
             );
@@ -200,6 +212,7 @@ const AppContent: React.FC = () => {
                     onShowPriceAlert={setAlertItem}
                     onSearchPromotions={handleSearchPromotions}
                     onShowPromotions={setPromoItem}
+                    onQuickAdd={handleQuickAdd}
                     onBulkUpdate={(lid, ids, updates) => setLists(lists.map(l => l.id === lid ? { ...l, items: l.items.map(i => ids.includes(i.id) ? { ...i, ...updates } : i) } : l))}
                     onBulkDelete={(lid, ids) => setLists(lists.map(l => l.id === lid ? { ...l, items: l.items.filter(i => !ids.includes(i.id)) } : l))}
                     onBulkMove={(src, dest, ids) => {
@@ -223,43 +236,29 @@ const AppContent: React.FC = () => {
                     }}
                 />
             );
-            case 'dashboard': return <FinanceDashboardScreen 
-                transactions={[
-                    { id: '1', description: 'Supermercado Continente', amount: -45.60, date: 'Hoje', category: 'Alimentação', icon: CartIcon },
-                    { id: '2', description: 'Viagem Uber', amount: -12.40, date: 'Ontem', category: 'Transporte', icon: PlaneIcon },
-                ]} 
-                expenses={[
-                    { name: 'Alimentação', value: 120, color: '#2ECC71' },
-                    { name: 'Lazer', value: 45, color: '#3B82F6' }
-                ]}
-            />;
-            case 'profile': return <ProfileScreen />;
+            case 'settings': return <ProfileScreen />;
             default: return null;
         }
     };
 
-    const showNavBar = ['lists', 'dashboard', 'profile'].includes(screen);
+    const showNavBar = ['dashboard', 'budget', 'lists', 'settings'].includes(screen);
 
     return (
         <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text max-w-md mx-auto shadow-2xl relative overflow-hidden">
-            <main className="flex-grow overflow-hidden h-full">
-                {renderScreen()}
-            </main>
-            
+            <main className="flex-grow overflow-hidden h-full">{renderScreen()}</main>
             {showNavBar && <BottomNavBar activeScreen={screen} setScreen={setScreen} />}
-
             {editingList && (
                 <EditListModal 
                     list={editingList}
-                    stores={initialStores}
+                    stores={stores}
+                    budgetCategories={budgetCategories}
                     onClose={() => setEditingList(null)}
-                    onSave={(id, name, icon, storeId) => {
-                        setLists(lists.map(l => l.id === id ? { ...l, name, icon, storeId } : l));
+                    onSave={(id, name, icon, storeId, budgetCategory) => {
+                        setLists(lists.map(l => l.id === id ? { ...l, name, icon, storeId, budgetCategory } : l));
                         setEditingList(null);
                     }}
                 />
             )}
-
             {alertItem && <PriceAlertModal item={alertItem} onClose={() => setAlertItem(null)} />}
             {promoItem && (
                 <PromotionsModal 
@@ -281,9 +280,7 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-    <AppProvider>
-        <AppContent />
-    </AppProvider>
+    <AppProvider><AppContent /></AppProvider>
 );
 
 export default App;

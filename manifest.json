@@ -1,22 +1,26 @@
 
 {
-  "short_name": "SmartShop",
-  "name": "Smart Shopping & Finance",
+  "short_name": "SmartFinance",
+  "name": "Smart Finance & Purchase Optimizer",
+  "description": "AI-powered financial assistant and purchase optimization platform.",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3081/3081840.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     },
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3081/3081840.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "theme_color": "#2ECC71",
   "background_color": "#F7F8FA",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "scope": "/"
 }

@@ -9,54 +9,54 @@ import { CheckIcon } from './icons/CheckIcon';
 import { SwipeableItem } from './SwipeableItem';
 import { ConfirmationModal } from './ConfirmationModal';
 
-export const ManageCategoriesModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const { t, categories, setCategories } = useApp();
+export const ManageBudgetCategoriesModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const { t, budgetCategories, setBudgetCategories } = useApp();
     const [newCatName, setNewCatName] = useState('');
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editingName, setEditingName] = useState('');
 
     // Confirmation State
-    const [catToDeleteId, setCatToDeleteId] = useState<string | null>(null);
+    const [catToDeleteIndex, setCatToDeleteIndex] = useState<number | null>(null);
 
     const handleAddCategory = (e: React.FormEvent) => {
         e.preventDefault();
         const trimmed = newCatName.trim();
         if (!trimmed) return;
+        if (budgetCategories.includes(trimmed)) {
+            setNewCatName('');
+            return;
+        }
         
-        const newCat = {
-            id: `cat-${Date.now()}`,
-            name: trimmed,
-        };
-        
-        setCategories(prev => [...prev, newCat]);
+        setBudgetCategories(prev => [...prev, trimmed]);
         setNewCatName('');
     };
 
     const confirmDeleteCategory = () => {
-        if (catToDeleteId) {
-            setCategories(prev => prev.filter(c => c.id !== catToDeleteId));
-            setCatToDeleteId(null);
+        if (catToDeleteIndex !== null) {
+            setBudgetCategories(prev => prev.filter((_, i) => i !== catToDeleteIndex));
+            setCatToDeleteIndex(null);
         }
     };
 
-    const startEditing = (id: string, name: string) => {
-        setEditingId(id);
+    const startEditing = (index: number, name: string) => {
+        setEditingIndex(index);
         setEditingName(name);
     };
 
     const saveEdit = () => {
-        if (!editingName.trim()) return;
-        setCategories(prev => prev.map(c => c.id === editingId ? { ...c, name: editingName.trim() } : c));
-        setEditingId(null);
+        const trimmed = editingName.trim();
+        if (!trimmed) return;
+        setBudgetCategories(prev => prev.map((c, i) => i === editingIndex ? trimmed : c));
+        setEditingIndex(null);
     };
 
-    const catToDeleteName = categories.find(c => c.id === catToDeleteId)?.name || '';
+    const catToDeleteName = catToDeleteIndex !== null ? budgetCategories[catToDeleteIndex] : '';
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm" onClick={onClose}>
             <div className="bg-light-surface dark:bg-dark-surface rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                 <header className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                    <h2 className="font-bold text-lg">{t('manage_categories')}</h2>
+                    <h2 className="font-bold text-lg">{t('manage_budget_categories')}</h2>
                     <button onClick={onClose} className="p-1"><XIcon className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button>
                 </header>
                 
@@ -81,14 +81,14 @@ export const ManageCategoriesModal: React.FC<{ onClose: () => void }> = ({ onClo
                 </form>
 
                 <div className="flex-grow overflow-y-auto p-2 divide-y divide-gray-50 dark:divide-gray-800">
-                    {categories.map(cat => (
+                    {budgetCategories.map((cat, index) => (
                         <SwipeableItem 
-                            key={cat.id} 
-                            onSwipeLeft={() => setCatToDeleteId(cat.id)} 
-                            disableSwipe={editingId !== null}
+                            key={index} 
+                            onSwipeLeft={() => setCatToDeleteIndex(index)} 
+                            disableSwipe={editingIndex !== null}
                         >
                             <div className="flex justify-between items-center p-4">
-                                {editingId === cat.id ? (
+                                {editingIndex === index ? (
                                     <div className="flex-1 flex gap-2">
                                         <input 
                                             type="text" 
@@ -107,16 +107,16 @@ export const ManageCategoriesModal: React.FC<{ onClose: () => void }> = ({ onClo
                                     </div>
                                 ) : (
                                     <>
-                                        <span className="font-bold text-light-text dark:text-dark-text">{cat.name}</span>
+                                        <span className="font-bold text-light-text dark:text-dark-text">{cat}</span>
                                         <div className="flex items-center gap-1">
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); startEditing(cat.id, cat.name); }} 
+                                                onClick={(e) => { e.stopPropagation(); startEditing(index, cat); }} 
                                                 className="p-2 text-gray-400 hover:text-primary transition-colors"
                                             >
                                                 <EditIcon className="w-5 h-5"/>
                                             </button>
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); setCatToDeleteId(cat.id); }} 
+                                                onClick={(e) => { e.stopPropagation(); setCatToDeleteIndex(index); }} 
                                                 className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                                             >
                                                 <TrashIcon className="w-5 h-5"/>
@@ -131,11 +131,11 @@ export const ManageCategoriesModal: React.FC<{ onClose: () => void }> = ({ onClo
             </div>
 
             <ConfirmationModal 
-                isOpen={catToDeleteId !== null}
+                isOpen={catToDeleteIndex !== null}
                 title={t('confirm_delete_category')}
                 message={`${t('confirm_delete_category_msg') || 'Tens a certeza que desejas apagar a categoria'} "${catToDeleteName}"?`}
                 onConfirm={confirmDeleteCategory}
-                onCancel={() => setCatToDeleteId(null)}
+                onCancel={() => setCatToDeleteIndex(null)}
             />
         </div>
     );

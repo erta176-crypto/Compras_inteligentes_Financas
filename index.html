@@ -5,10 +5,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#2ECC71" />
-    <meta name="description" content="A sua lista de compras inteligente e gestor financeiro pessoal. Organize compras, controle gastos e poupe dinheiro com ajuda de IA." />
+    <meta name="description" content="AI-powered financial assistant and purchase optimization platform. Track expenses, analyze spending, and optimize your finances." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Smart Shopping</title>
+    <title>SmartFinance AI</title>
     
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3081/3081840.png" />
@@ -18,6 +18,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -53,6 +55,7 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-light-bg dark:bg-dark-bg transition-colors duration-300 overscroll-none">
     <div id="root"></div>
@@ -65,5 +68,6 @@
         });
       }
     </script>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

@@ -7,7 +7,8 @@ interface ProgressBarProps {
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({ progress, color = 'bg-primary' }) => {
-    const progressPercentage = Math.max(0, Math.min(100, progress));
+    const safeProgress = isNaN(progress) ? 0 : progress;
+    const progressPercentage = Math.max(0, Math.min(100, safeProgress));
     return (
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div

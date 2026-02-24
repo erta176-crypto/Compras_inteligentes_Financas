@@ -2,9 +2,12 @@
 import React from 'react';
 import { AppScreen } from '../types';
 import { useApp } from '../context/AppContext';
-import { ListsIcon } from './icons/ListsIcon';
 import { DashboardIcon } from './icons/DashboardIcon';
-import { ProfileIcon } from './icons/ProfileIcon';
+import { FileTextIcon } from './icons/FileTextIcon';
+import { SparkleIcon } from './icons/SparkleIcon';
+import { TagIcon } from './icons/TagIcon';
+import { SettingsIcon } from './icons/SettingsIcon';
+import { ListsIcon } from './icons/ListsIcon';
 
 interface BottomNavBarProps {
     activeScreen: AppScreen;
@@ -12,9 +15,10 @@ interface BottomNavBarProps {
 }
 
 const navItems = [
+    { screen: 'dashboard' as AppScreen, labelKey: 'nav_dashboard', Icon: DashboardIcon },
+    { screen: 'budget' as AppScreen, labelKey: 'nav_budget', Icon: TagIcon },
     { screen: 'lists' as AppScreen, labelKey: 'nav_lists', Icon: ListsIcon },
-    { screen: 'dashboard' as AppScreen, labelKey: 'nav_expenses', Icon: DashboardIcon },
-    { screen: 'profile' as AppScreen, labelKey: 'nav_profile', Icon: ProfileIcon },
+    { screen: 'settings' as AppScreen, labelKey: 'nav_settings', Icon: SettingsIcon },
 ];
 
 export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeScreen, setScreen }) => {
