@@ -9,10 +9,32 @@ interface WelcomeScreenProps {
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
-    const { t, loginWithGoogle, login } = useApp();
+    const { t, loginWithGoogle, login, loginWithBiometrics } = useApp();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [canUseBiometrics, setCanUseBiometrics] = useState(false);
     const googleBtnRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const email = localStorage.getItem('last_logged_email');
+        const isBioEnabled = email ? localStorage.getItem(`bio_v2_${email}`) === 'true' : false;
+        setCanUseBiometrics(isBioEnabled);
+    }, []);
+
+    const handleBiometricLogin = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const success = await loginWithBiometrics();
+            if (!success) {
+                setError("Falha na autenticação biométrica.");
+                setIsLoading(false);
+            }
+        } catch (err) {
+            setError("Erro ao usar biometria.");
+            setIsLoading(false);
+        }
+    };
 
     // Mock Login para demonstração (caso o Google falhe por configuração)
     const handleDemoLogin = () => {
@@ -62,7 +84,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
                         type: "standard",
                         shape: "pill",
                         text: "continue_with",
-                        width: "100%",
                         logo_alignment: "left"
                     });
                 } catch (e) {
@@ -108,6 +129,27 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
                         <br/>
                         <span className="font-normal opacity-80">Verifique a configuração do Google Console.</span>
                     </div>
+                )}
+
+                {canUseBiometrics && (
+                    <>
+                        <button 
+                            onClick={handleBiometricLogin}
+                            disabled={isLoading}
+                            className="w-full bg-primary hover:bg-primary-dark text-white font-black py-3.5 rounded-full shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2 mb-4"
+                        >
+                            {isLoading ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <span>Entrar com Biometria</span>
+                            )}
+                        </button>
+                        <div className="relative flex py-2 items-center">
+                            <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                            <span className="flex-shrink-0 mx-4 text-gray-400 text-[10px] font-bold uppercase tracking-widest">ou</span>
+                            <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                        </div>
+                    </>
                 )}
 
                 {/* Google Button Container - Altura fixa para evitar layout shift */}

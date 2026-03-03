@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserIcon } from './icons/UserIcon';
 import { ChevronRightIcon } from './icons/ChevronRightIcon';
+import { CameraIcon } from './icons/CameraIcon';
 import { ManageStoresModal } from './ManageStoresModal';
 import { ManageCategoriesModal } from './ManageCategoriesModal';
 import { ManageBudgetCategoriesModal } from './ManageBudgetCategoriesModal';
@@ -40,6 +41,7 @@ export const ProfileScreen: React.FC = () => {
     const [isManageBudgetCategoriesOpen, setIsManageBudgetCategoriesOpen] = useState(false);
     const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
     const [isUserManualOpen, setIsUserManualOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const displayName = user?.name || t('default_user');
     const displayEmail = user?.email || 'utilizador@email.pt';
@@ -50,7 +52,28 @@ export const ProfileScreen: React.FC = () => {
     };
 
     const handleToggleBiometrics = () => {
-        updateUser({ biometricsEnabled: !user?.biometricsEnabled });
+        const newState = !user?.biometricsEnabled;
+        updateUser({ biometricsEnabled: newState });
+        if (newState) {
+            alert(t('biometrics_enabled_msg') || 'Biometria ativada. Use a sua impressão digital ou FaceID no próximo login.');
+        } else {
+            alert(t('biometrics_disabled_msg') || 'Biometria desativada.');
+        }
+    };
+
+    const handlePhotoClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                updateUser({ photo: reader.result as string });
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     return (
@@ -58,16 +81,34 @@ export const ProfileScreen: React.FC = () => {
             <h1 className="text-3xl font-black mb-8 tracking-tight">{t('nav_settings')}</h1>
 
             <div className="flex items-center bg-light-surface dark:bg-dark-surface p-6 rounded-[40px] mb-8 shadow-sm border border-gray-100 dark:border-gray-800">
-                 <div className="w-20 h-20 rounded-[28px] bg-primary/10 flex items-center justify-center mr-5 overflow-hidden border-2 border-white dark:border-gray-700 shadow-lg">
+                 <input 
+                     type="file" 
+                     accept="image/*" 
+                     ref={fileInputRef} 
+                     onChange={handleFileChange} 
+                     className="hidden" 
+                 />
+                 <div 
+                     className="relative w-20 h-20 rounded-[28px] bg-primary/10 flex items-center justify-center mr-5 overflow-hidden border-2 border-white dark:border-gray-700 shadow-lg cursor-pointer group"
+                     onClick={handlePhotoClick}
+                 >
                     {user?.photo ? (
                         <img src={user.photo} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                         <UserIcon className="w-10 h-10 text-primary/40" />
                     )}
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <CameraIcon className="w-6 h-6 text-white" />
+                    </div>
                 </div>
                 <div>
                     <h2 className="font-black text-xl text-light-text dark:text-dark-text">{displayName}</h2>
-                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 mt-1">{t('member_since')} {user?.memberSince || '2025'}</p>
+                    <p 
+                        className="text-xs font-bold text-primary mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={handlePhotoClick}
+                    >
+                        Alterar Foto
+                    </p>
                 </div>
             </div>
 

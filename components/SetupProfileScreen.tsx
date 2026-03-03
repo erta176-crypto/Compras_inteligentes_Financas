@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserIcon } from './icons/UserIcon';
 import { CameraIcon } from './icons/CameraIcon';
@@ -14,6 +14,7 @@ export const SetupProfileScreen: React.FC<SetupProfileScreenProps> = ({ onComple
     const [photo, setPhoto] = useState(user?.photo || '');
     const [enableBiometrics, setEnableBiometrics] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFinish = () => {
         if (!name.trim()) return;
@@ -32,6 +33,21 @@ export const SetupProfileScreen: React.FC<SetupProfileScreenProps> = ({ onComple
         }, 1000);
     };
 
+    const handlePhotoClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPhoto(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full p-8 bg-light-surface dark:bg-dark-surface animate-in fade-in duration-500 overflow-y-auto">
             <div className="flex-grow flex flex-col items-center">
@@ -43,7 +59,17 @@ export const SetupProfileScreen: React.FC<SetupProfileScreenProps> = ({ onComple
 
                 <div className="w-full space-y-8">
                     <div className="flex flex-col items-center">
-                        <div className="relative w-24 h-24 rounded-[32px] overflow-hidden bg-gray-100 dark:bg-gray-800 border-4 border-white dark:border-dark-surface shadow-xl">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            ref={fileInputRef} 
+                            onChange={handleFileChange} 
+                            className="hidden" 
+                        />
+                        <div 
+                            className="relative w-24 h-24 rounded-[32px] overflow-hidden bg-gray-100 dark:bg-gray-800 border-4 border-white dark:border-dark-surface shadow-xl cursor-pointer group"
+                            onClick={handlePhotoClick}
+                        >
                             {photo ? (
                                 <img src={photo} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
@@ -51,11 +77,16 @@ export const SetupProfileScreen: React.FC<SetupProfileScreenProps> = ({ onComple
                                     <UserIcon className="w-10 h-10 text-gray-300" />
                                 </div>
                             )}
-                            <button className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <CameraIcon className="w-6 h-6 text-white" />
-                            </button>
+                            </div>
                         </div>
-                        <p className="mt-3 text-xs font-black text-primary uppercase tracking-widest cursor-pointer">Alterar Foto</p>
+                        <p 
+                            className="mt-3 text-xs font-black text-primary uppercase tracking-widest cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={handlePhotoClick}
+                        >
+                            Alterar Foto
+                        </p>
                     </div>
 
                     <div className="space-y-6">

@@ -10,7 +10,10 @@ const decodeJwt = (token: string) => {
     try {
         const base64Url = token.split('.')[1];
         if (!base64Url) return null;
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) {
+            base64 += '=';
+        }
         const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
@@ -75,8 +78,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Efeitos de inicialização
     useEffect(() => {
         const storedTheme = localStorage.getItem('theme') as Theme;
-        if (storedTheme) setTheme(storedTheme);
+        if (storedTheme) {
+            setTheme(storedTheme);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            setTheme('dark');
+        }
     }, []);
+
+    // Aplicar tema ao documento
+    useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === 'dark') {
+            root.classList.add('dark');
+        } else {
+            root.classList.remove('dark');
+        }
+        localStorage.setItem('theme', theme);
+    }, [theme]);
 
     // Persistência das listas
     useEffect(() => {
@@ -213,10 +231,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return (
         <AppContext.Provider value={{ 
             language, setLanguage, 
-            theme, setTheme: (newTheme: Theme) => {
-                setTheme(newTheme);
-                localStorage.setItem('theme', newTheme);
-            }, 
+            theme, setTheme,
             user, loginWithGoogle, loginWithBiometrics, logout, updateUser, login,
             t, 
             stores, setStores, 

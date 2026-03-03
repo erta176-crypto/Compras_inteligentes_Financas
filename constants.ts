@@ -7,7 +7,7 @@ import { ShoppingList, ListItem, Transaction, Budget, Store, Category } from './
 // criar credenciais de OAuth Client ID para Web Application, e adicionar a URL do seu preview
 // (ex: https://ais-dev-....run.app) em "Authorized JavaScript origins".
 // Depois, substitua o valor abaixo pelo seu novo Client ID.
-export const GOOGLE_CLIENT_ID = "288002387414-6cvdo0ftcmsi36l9npigsaoj3m86oedc.apps.googleusercontent.com";
+export const GOOGLE_CLIENT_ID = "295756909371-bvb5em9csgbl2s6qvjc4r6g21hj1ob0q.apps.googleusercontent.com";
 
 export const initialStores: Store[] = [
     { id: '1', name: 'Continente', icon: '🛒', color: '#2ECC71' },
@@ -67,6 +67,8 @@ export const translations = {
         'finish_setup': 'Finalizar Configuração',
         'enable_biometrics': 'Ativar Biometria',
         'biometrics_desc': 'Use FaceID ou TouchID para entrar rapidamente na App.',
+        'biometrics_enabled_msg': 'Biometria ativada. Use a sua impressão digital ou FaceID no próximo login.',
+        'biometrics_disabled_msg': 'Biometria desativada.',
         'dashboard_title': 'Bem-vindo de volta,',
         'default_user': 'Utilizador',
         'my_profile': 'O Meu Perfil',
