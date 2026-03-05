@@ -21,6 +21,7 @@ export interface Store {
 export interface Category {
     id: string;
     name: string;
+    color?: string;
 }
 
 export interface Promotion {
@@ -53,6 +54,15 @@ export interface ListItem {
     promotions?: Promotion[];
     promotionStatus?: 'idle' | 'checking' | 'checked';
     selectedPromotion?: Promotion;
+}
+
+export interface PurchaseRecord {
+    id: string;
+    date: string;
+    totalAmount: number;
+    store?: string;
+    items: ListItem[];
+    listName: string;
 }
 
 export interface ShoppingList {
@@ -106,7 +116,7 @@ export interface FinancialSummary {
     healthScore: number;
 }
 
-export type AppScreen = 'onboarding' | 'welcome' | 'setupProfile' | 'lists' | 'listDetail' | 'addItem' | 'dashboard' | 'budget' | 'settings';
+export type AppScreen = 'onboarding' | 'welcome' | 'setupProfile' | 'lists' | 'listDetail' | 'addItem' | 'dashboard' | 'budget' | 'settings' | 'history';
 
 export type Language = 'en' | 'pt';
 
@@ -137,4 +147,7 @@ export interface AppContextType {
     budgetCategories: string[];
     setBudgetCategories: React.Dispatch<React.SetStateAction<string[]>>;
     login: (user: User) => void;
+    purchaseHistory: PurchaseRecord[];
+    setPurchaseHistory: React.Dispatch<React.SetStateAction<PurchaseRecord[]>>;
+    addPurchaseRecord: (record: PurchaseRecord) => void;
 }

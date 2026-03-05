@@ -22,6 +22,7 @@ import { ArrowDownIcon } from './icons/ArrowDownIcon';
 import { MoveItemsModal } from './MoveItemsModal';
 import { SwipeableItem } from './SwipeableItem';
 import { ConfirmationModal } from './ConfirmationModal';
+import { FinishShoppingModal } from './FinishShoppingModal';
 
 interface ListDetailScreenProps {
     list: ShoppingList;
@@ -55,10 +56,18 @@ const ListItemComponent: React.FC<{
     isSelected: boolean;
     onSelect: () => void;
     t: (k:string) => string;
-}> = ({ item, onToggle, onEdit, onDelete, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, isBulkMode, isSelected, onSelect, t }) => {
+    categoryColor?: string;
+}> = ({ item, onToggle, onEdit, onDelete, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, isBulkMode, isSelected, onSelect, t, categoryColor }) => {
     return (
         <SwipeableItem onSwipeLeft={isBulkMode ? undefined : onDelete} onSwipeRight={isBulkMode ? undefined : onToggle} disableSwipe={isBulkMode} className="rounded-lg mb-2 shadow-sm">
-            <div onClick={() => isBulkMode ? onSelect() : onEdit()} className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 border-primary border' : 'bg-light-surface dark:bg-dark-surface border border-transparent'}`}>
+            <div 
+                onClick={() => isBulkMode ? onSelect() : onEdit()} 
+                className={`flex items-center justify-between p-3 cursor-pointer transition-colors border-l-4 rounded-lg ${isSelected ? 'border-primary border-y border-r' : 'border-y border-r border-transparent'}`}
+                style={{ 
+                    borderLeftColor: categoryColor || 'transparent',
+                    backgroundColor: isSelected ? 'rgba(var(--color-primary-rgb), 0.1)' : (categoryColor ? `${categoryColor}15` : 'var(--color-light-surface)'),
+                }}
+            >
                 <div className="flex items-center space-x-4 flex-1">
                      <button onClick={(e) => { e.stopPropagation(); isBulkMode ? onSelect() : onToggle(); }} className="flex-shrink-0">
                         {isBulkMode ? (isSelected ? <CheckCircleIcon className="w-6 h-6 text-primary" /> : <CircleIcon className="w-6 h-6 text-gray-300 dark:text-gray-600" />) : (item.completed ? <CheckCircleIcon className="w-6 h-6 text-primary" /> : <CircleIcon className="w-6 h-6 text-gray-300 dark:text-gray-600" />)}
@@ -66,7 +75,9 @@ const ListItemComponent: React.FC<{
                     {item.image && <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />}
                     <div className="flex-1">
                         <p className={`font-medium ${item.completed ? 'line-through text-gray-400' : 'text-light-text dark:text-dark-text'}`}>{item.name}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{`${item.quantity}${item.unit} • ${item.category}`}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{`${item.quantity}${item.unit} • ${item.category}`}</p>
+                        </div>
                     </div>
                 </div>
                 {!isBulkMode && (
@@ -119,11 +130,13 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
     const [sortBy, setSortBy] = useState<'name' | 'price' | 'category'>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [isBulkMode, setIsBulkMode] = useState(false);
-    const [isGrouped, setIsGrouped] = useState(false);
+    const [isGrouped, setIsGrouped] = useState(true);
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
     const [showMoveModal, setShowMoveModal] = useState(false);
     const [quickAddName, setQuickAddName] = useState('');
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+    const [showFinishModal, setShowFinishModal] = useState(false);
+    const { addPurchaseRecord } = useApp();
 
     const { pendingItems, completedItems, totalCost, totalItems, completedItemsCount } = useMemo(() => {
         const pending = list.items.filter(item => !item.completed);
@@ -176,6 +189,28 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
         }
     };
 
+    const totalCompletedAmount = useMemo(() => completedItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0), [completedItems]);
+
+    const handleFinishShopping = (store: string) => {
+        const record = {
+            id: `purchase-${Date.now()}`,
+            date: new Date().toISOString(),
+            totalAmount: totalCompletedAmount,
+            store: store || undefined,
+            items: completedItems,
+            listName: list.name
+        };
+        
+        // Add to history
+        addPurchaseRecord(record);
+        
+        // Remove completed items from the list
+        const completedIds = completedItems.map(i => i.id);
+        onBulkDelete(list.id, completedIds);
+        
+        setShowFinishModal(false);
+    };
+
     return (
         <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg relative">
             <header className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-light-surface dark:bg-dark-surface sticky top-0 z-10">
@@ -206,6 +241,16 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                             <div className="flex justify-between text-[10px] text-gray-400 font-black mb-2 uppercase tracking-widest"><span>{t('total_estimated')}</span><span>{t('articles')}</span></div>
                             <div className="flex justify-between items-center font-bold text-2xl mb-4"><span className="text-primary">{totalCost.toFixed(2)} €</span><span>{totalItems}</span></div>
                             <ProgressBar progress={progress} />
+                            
+                            {completedItems.length > 0 && (
+                                <button 
+                                    onClick={() => setShowFinishModal(true)}
+                                    className="w-full mt-4 bg-primary/10 text-primary font-bold py-3 rounded-xl hover:bg-primary/20 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                    {t('finish_shopping') || 'Finalizar Compra'} ({totalCompletedAmount.toFixed(2)} €)
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -229,15 +274,18 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                         {isGrouped && groupedItems ? (
                             groupedItems.map(group => (
                                 <div key={group.category} className="space-y-2">
-                                    <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 pt-2">{group.category}</h3>
+                                    <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 pt-2 flex items-center gap-2">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: categories.find(c => c.name === group.category)?.color || '#6B7280' }} />
+                                        {group.category}
+                                    </h3>
                                     {group.items.map(item => (
-                                        <ListItemComponent key={item.id} item={item} onToggle={() => onToggleItem(list.id, item.id)} onEdit={() => onEditItem(item)} onDelete={() => setItemToDeleteId(item.id)} onCheckPrice={() => onCheckPrice(list.id, item.id)} onShowPriceAlert={() => onShowPriceAlert(item)} onSearchPromotions={() => onSearchPromotions(list.id, item.id)} onShowPromotions={() => onShowPromotions(item)} isBulkMode={isBulkMode} isSelected={selectedItemIds.includes(item.id)} onSelect={() => setSelectedItemIds(prev => prev.includes(item.id) ? prev.filter(i => i !== item.id) : [...prev, item.id])} t={t} />
+                                        <ListItemComponent key={item.id} item={item} onToggle={() => onToggleItem(list.id, item.id)} onEdit={() => onEditItem(item)} onDelete={() => setItemToDeleteId(item.id)} onCheckPrice={() => onCheckPrice(list.id, item.id)} onShowPriceAlert={() => onShowPriceAlert(item)} onSearchPromotions={() => onSearchPromotions(list.id, item.id)} onShowPromotions={() => onShowPromotions(item)} isBulkMode={isBulkMode} isSelected={selectedItemIds.includes(item.id)} onSelect={() => setSelectedItemIds(prev => prev.includes(item.id) ? prev.filter(i => i !== item.id) : [...prev, item.id])} t={t} categoryColor={categories.find(c => c.name === item.category)?.color} />
                                     ))}
                                 </div>
                             ))
                         ) : (
                             filteredItems.map(item => (
-                                <ListItemComponent key={item.id} item={item} onToggle={() => onToggleItem(list.id, item.id)} onEdit={() => onEditItem(item)} onDelete={() => setItemToDeleteId(item.id)} onCheckPrice={() => onCheckPrice(list.id, item.id)} onShowPriceAlert={() => onShowPriceAlert(item)} onSearchPromotions={() => onSearchPromotions(list.id, item.id)} onShowPromotions={() => onShowPromotions(item)} isBulkMode={isBulkMode} isSelected={selectedItemIds.includes(item.id)} onSelect={() => setSelectedItemIds(prev => prev.includes(item.id) ? prev.filter(i => i !== item.id) : [...prev, item.id])} t={t} />
+                                <ListItemComponent key={item.id} item={item} onToggle={() => onToggleItem(list.id, item.id)} onEdit={() => onEditItem(item)} onDelete={() => setItemToDeleteId(item.id)} onCheckPrice={() => onCheckPrice(list.id, item.id)} onShowPriceAlert={() => onShowPriceAlert(item)} onSearchPromotions={() => onSearchPromotions(list.id, item.id)} onShowPromotions={() => onShowPromotions(item)} isBulkMode={isBulkMode} isSelected={selectedItemIds.includes(item.id)} onSelect={() => setSelectedItemIds(prev => prev.includes(item.id) ? prev.filter(i => i !== item.id) : [...prev, item.id])} t={t} categoryColor={categories.find(c => c.name === item.category)?.color} />
                             ))
                         )}
                     </div>

@@ -9,6 +9,7 @@ import { ShoppingListsScreen } from './components/ShoppingListsScreen';
 import { ListDetailScreen } from './components/ListDetailScreen';
 import { AddItemScreen } from './components/AddItemScreen';
 import { FinanceDashboardScreen } from './components/FinanceDashboardScreen';
+import { DashboardScreen } from './components/DashboardScreen';
 import { BudgetScreen } from './components/BudgetScreen';
 import { ProfileScreen } from './components/ProfileScreen';
 import { BottomNavBar } from './components/BottomNavBar';
@@ -26,6 +27,40 @@ const AppContent: React.FC = () => {
     const [editingList, setEditingList] = useState<ShoppingList | null>(null);
     const [alertItem, setAlertItem] = useState<ListItem | null>(null);
     const [promoItem, setPromoItem] = useState<ListItem | null>(null);
+    const [isPopState, setIsPopState] = useState(false);
+    
+    // Handle browser back button
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (event.state && event.state.screen) {
+                setIsPopState(true);
+                setScreen(event.state.screen);
+                setSelectedListId(event.state.selectedListId || null);
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        
+        // Set initial state
+        window.history.replaceState({ screen, selectedListId }, '');
+
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    // Push state when screen or selectedListId changes (if not from popstate)
+    useEffect(() => {
+        if (isPopState) {
+            setIsPopState(false);
+            return;
+        }
+
+        const currentState = window.history.state;
+        if (!currentState || currentState.screen !== screen || currentState.selectedListId !== selectedListId) {
+            // For certain transitions, we might want to replace instead of push
+            // but for simplicity and to meet user request, push is generally better
+            window.history.pushState({ screen, selectedListId }, '');
+        }
+    }, [screen, selectedListId]);
     
     useEffect(() => {
         const onboardingDone = localStorage.getItem('onboarding_done');
@@ -187,7 +222,7 @@ const AppContent: React.FC = () => {
             case 'onboarding': return <OnboardingScreen onComplete={handleOnboardingComplete} />;
             case 'welcome': return <WelcomeScreen onComplete={() => setScreen('dashboard')} />;
             case 'setupProfile': return <SetupProfileScreen onComplete={() => setScreen('dashboard')} />;
-            case 'dashboard': return <FinanceDashboardScreen />;
+            case 'dashboard': return <FinanceDashboardScreen onOpenHistory={() => setScreen('history')} />;
             case 'budget': return <BudgetScreen />;
             case 'lists': return (
                 <ShoppingListsScreen 
@@ -237,6 +272,7 @@ const AppContent: React.FC = () => {
                 />
             );
             case 'settings': return <ProfileScreen />;
+            case 'history': return <DashboardScreen onBack={() => setScreen('dashboard')} />;
             default: return null;
         }
     };

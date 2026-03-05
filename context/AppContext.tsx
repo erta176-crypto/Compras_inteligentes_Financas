@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
-import { AppContextType, Language, Theme, Store, Category, User, ShoppingList, Transaction, Budget } from '../types';
+import { AppContextType, Language, Theme, Store, Category, User, ShoppingList, Transaction, Budget, PurchaseRecord } from '../types';
 import { translations, initialStores, initialCategories, GOOGLE_CLIENT_ID } from '../constants';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -63,6 +63,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const stored = localStorage.getItem('budget_categories');
         return stored ? JSON.parse(stored) : ['Supermercado', 'Restauração', 'Vestuário', 'Combustível', 'Lazer', 'Habitação', 'Saúde', 'Transportes'];
     });
+    const [purchaseHistory, setPurchaseHistory] = useState<PurchaseRecord[]>(() => {
+        const stored = localStorage.getItem('purchase_history');
+        return stored ? JSON.parse(stored) : [];
+    });
     
     // Inicialização segura do utilizador
     const [user, setUser] = useState<User | null>(() => {
@@ -114,6 +118,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     useEffect(() => {
         localStorage.setItem('budget_categories', JSON.stringify(budgetCategories));
     }, [budgetCategories]);
+
+    useEffect(() => {
+        localStorage.setItem('purchase_history', JSON.stringify(purchaseHistory));
+    }, [purchaseHistory]);
 
     const login = (newUser: User) => {
         setUser(newUser);
@@ -199,6 +207,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return (translations[language] as any)[key] || key;
     }, [language]);
 
+    const addPurchaseRecord = useCallback((record: PurchaseRecord) => {
+        setPurchaseHistory(prev => [record, ...prev]);
+    }, []);
+
     const budgetsWithSpent = useMemo(() => {
         const now = new Date();
         return budgets.map(budget => {
@@ -240,7 +252,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             transactions, setTransactions,
             budgets, setBudgets,
             budgetsWithSpent,
-            budgetCategories, setBudgetCategories
+            budgetCategories, setBudgetCategories,
+            purchaseHistory, setPurchaseHistory, addPurchaseRecord
         }}>
             {children}
         </AppContext.Provider>

@@ -296,7 +296,10 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ onSave, onCancel, 
                     <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('category')}</label>
                     <div className="grid grid-cols-3 gap-2 mt-2">
                         {categories.map(cat => (
-                             <button key={cat.id} onClick={() => handleChange('category', cat.name)} className={`p-2 rounded-lg text-xs font-semibold border-2 transition-all ${formData.category === cat.name ? 'bg-primary/10 border-primary text-primary' : 'bg-light-surface dark:bg-dark-surface border-transparent text-gray-500'}`}>{cat.name}</button>
+                             <button key={cat.id} onClick={() => handleChange('category', cat.name)} className={`p-2 rounded-lg text-xs font-semibold border-2 transition-all flex items-center justify-center gap-1.5 ${formData.category === cat.name ? 'bg-primary/10 border-primary text-primary' : 'bg-light-surface dark:bg-dark-surface border-transparent text-gray-500'}`}>
+                                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color || '#6B7280' }} />
+                                 <span className="truncate">{cat.name}</span>
+                             </button>
                         ))}
                     </div>
                 </div>

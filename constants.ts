@@ -17,15 +17,15 @@ export const initialStores: Store[] = [
 ];
 
 export const initialCategories: Category[] = [
-    { id: '1', name: 'Frescos' },
-    { id: '2', name: 'Padaria' },
-    { id: '3', name: 'Laticínios' },
-    { id: '4', name: 'Congelados' },
-    { id: '5', name: 'Talho' },
-    { id: '6', name: 'Mercearia' },
-    { id: '7', name: 'Limpeza' },
-    { id: '8', name: 'Bebidas' },
-    { id: '9', name: 'Outros' },
+    { id: '1', name: 'Frescos', color: '#10B981' }, // Emerald
+    { id: '2', name: 'Padaria', color: '#F59E0B' }, // Amber
+    { id: '3', name: 'Laticínios', color: '#3B82F6' }, // Blue
+    { id: '4', name: 'Congelados', color: '#06B6D4' }, // Cyan
+    { id: '5', name: 'Talho', color: '#EF4444' }, // Red
+    { id: '6', name: 'Mercearia', color: '#8B5CF6' }, // Violet
+    { id: '7', name: 'Limpeza', color: '#14B8A6' }, // Teal
+    { id: '8', name: 'Bebidas', color: '#EC4899' }, // Pink
+    { id: '9', name: 'Outros', color: '#6B7280' }, // Gray
 ];
 
 export const translations = {

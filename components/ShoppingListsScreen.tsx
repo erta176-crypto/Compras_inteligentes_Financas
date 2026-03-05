@@ -112,7 +112,8 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
         return lists
             .filter(list => list.status === activeTab)
             .filter(list => list.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            .filter(list => activeStoreFilter === 'all' || list.storeId === activeStoreFilter);
+            .filter(list => activeStoreFilter === 'all' || list.storeId === activeStoreFilter)
+            .sort((a, b) => a.name.localeCompare(b.name));
     }, [lists, activeTab, searchQuery, activeStoreFilter]);
 
     const handleDelete = (listId: string) => {

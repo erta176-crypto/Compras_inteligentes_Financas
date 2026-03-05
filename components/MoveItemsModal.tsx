@@ -15,7 +15,9 @@ interface MoveItemsModalProps {
 
 export const MoveItemsModal: React.FC<MoveItemsModalProps> = ({ isOpen, onClose, onMove, lists, currentListId }) => {
     const { t } = useApp();
-    const availableLists = lists.filter(l => l.id !== currentListId && l.status === 'active');
+    const availableLists = lists
+        .filter(l => l.id !== currentListId && l.status === 'active')
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     if (!isOpen) return null;
 

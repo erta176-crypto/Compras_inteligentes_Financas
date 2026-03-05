@@ -10,8 +10,9 @@ import { AddTransactionModal } from './AddTransactionModal';
 import { EditTransactionModal } from './EditTransactionModal';
 import { PlusIcon } from './icons/PlusIcon';
 import { Transaction } from '../types';
+import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 
-export const FinanceDashboardScreen: React.FC = () => {
+export const FinanceDashboardScreen: React.FC<{ onOpenHistory?: () => void }> = ({ onOpenHistory }) => {
     const { t, user, lists, transactions, budgetsWithSpent } = useApp();
     const [showAddModal, setShowAddModal] = React.useState(false);
     const [editingTransaction, setEditingTransaction] = React.useState<Transaction | null>(null);
@@ -65,7 +66,64 @@ export const FinanceDashboardScreen: React.FC = () => {
             monthlyIncome,
             healthScore: Math.round(healthScore)
         };
-    }, [transactions, budgetsWithSpent]);
+    }, [transactions, budgetsWithSpent, lists]);
+
+    const healthHistoryData = useMemo(() => {
+        const data = [];
+        const now = new Date();
+        
+        // Calculate total budget limit (assuming it's constant for past months for simplicity)
+        const totalBudgetLimit = budgetsWithSpent.reduce((sum, b) => sum + b.limit, 0);
+
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthName = date.toLocaleString('pt-PT', { month: 'short' });
+            
+            const monthTxs = transactions.filter(tx => {
+                const txDate = new Date(tx.date);
+                return txDate.getMonth() === date.getMonth() && txDate.getFullYear() === date.getFullYear();
+            });
+
+            let monthlySpending = monthTxs
+                .filter(tx => tx.type === 'expense')
+                .reduce((sum, tx) => sum + tx.amount, 0);
+
+            const monthlyIncome = monthTxs
+                .filter(tx => tx.type === 'income')
+                .reduce((sum, tx) => sum + tx.amount, 0);
+
+            // If it's the current month, add active lists spending
+            if (i === 0) {
+                const activeListSpending = lists
+                    .filter(l => l.status === 'active')
+                    .reduce((total, list) => {
+                        const listTotal = list.items
+                            .filter(item => item.completed)
+                            .reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
+                        return total + listTotal;
+                    }, 0);
+                monthlySpending += activeListSpending;
+            }
+
+            const budgetUsage = totalBudgetLimit > 0 ? (monthlySpending / totalBudgetLimit) : 0.5;
+            const savingRate = monthlyIncome > 0 ? (monthlyIncome - monthlySpending) / monthlyIncome : 0;
+            
+            let healthScore;
+            if (i === 0) {
+                // Use the exact same score as the summary for the current month to ensure consistency
+                healthScore = summary.healthScore;
+            } else {
+                const rawScore = (savingRate * 50) + (1 - budgetUsage) * 50 + 50;
+                healthScore = Math.min(100, Math.max(0, isNaN(rawScore) ? 50 : rawScore));
+            }
+
+            data.push({
+                name: monthName.replace('.', ''), // Remove dot from short month if exists
+                score: Math.round(healthScore)
+            });
+        }
+        return data;
+    }, [transactions, budgetsWithSpent, lists, summary.healthScore]);
 
     const displayName = user?.name || t('default_user');
 
@@ -111,23 +169,59 @@ export const FinanceDashboardScreen: React.FC = () => {
             </div>
 
             {/* Health Score & Stats */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-[32px] shadow-sm border border-gray-100 dark:border-gray-800">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">{t('health_score')}</p>
-                    <div className="relative w-20 h-20 mx-auto">
-                        <svg className="w-full h-full" viewBox="0 0 36 36">
-                            <path className="text-gray-100 dark:text-gray-800" strokeDasharray="100, 100" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path className="text-primary" strokeDasharray={`${summary.healthScore}, 100`} strokeWidth="3" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-xl font-black text-primary">{summary.healthScore}</span>
-                        </div>
+            <div className="flex flex-col gap-4 mb-8">
+                <div 
+                    onClick={onOpenHistory}
+                    className="bg-light-surface dark:bg-dark-surface p-6 rounded-[32px] shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer active:scale-95 transition-all hover:border-primary/30"
+                >
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t('monthly_spending')}</p>
+                        <p className="text-3xl font-black text-light-text dark:text-dark-text">{summary.monthlySpending.toFixed(2)}€</p>
+                        <p className="text-[10px] text-primary mt-1 font-bold uppercase tracking-widest">{t('view_history') || 'Ver Histórico'}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-primary font-bold text-xl">&rarr;</span>
                     </div>
                 </div>
-                <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-[32px] shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{t('monthly_spending')}</p>
-                    <p className="text-2xl font-black text-light-text dark:text-dark-text">{summary.monthlySpending.toFixed(2)}€</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{currentMonth}</p>
+
+                <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-[32px] shadow-sm border border-gray-100 dark:border-gray-800">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{t('health_score')}</p>
+                            <p className="text-4xl font-black text-primary">{summary.healthScore}</p>
+                        </div>
+                        <div className="relative w-16 h-16">
+                            <svg className="w-full h-full" viewBox="0 0 36 36">
+                                <path className="text-gray-100 dark:text-gray-800" strokeDasharray="100, 100" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path className="text-primary" strokeDasharray={`${summary.healthScore}, 100`} strokeWidth="3" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    {/* Line Chart for Evolution */}
+                    <div className="h-28 w-full mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={healthHistoryData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                                <Tooltip 
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                                    formatter={(value: number) => [`${value} pts`, 'Score']}
+                                    labelStyle={{ color: '#9CA3AF', marginBottom: '4px', textTransform: 'capitalize' }}
+                                />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="score" 
+                                    stroke="#2ECC71" 
+                                    strokeWidth={3} 
+                                    dot={{ r: 4, fill: '#2ECC71', strokeWidth: 2, stroke: '#fff' }} 
+                                    activeDot={{ r: 6 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2 px-2">
+                        <span>{healthHistoryData[0]?.name}</span>
+                        <span>{healthHistoryData[healthHistoryData.length - 1]?.name}</span>
+                    </div>
                 </div>
             </div>
 

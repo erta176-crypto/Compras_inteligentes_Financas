@@ -21,8 +21,10 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
     const [offsetX, setOffsetX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const startX = useRef(0);
+    const startY = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const hasMoved = useRef(false);
+    const isScrolling = useRef(false);
 
     // Thresholds
     const DRAG_THRESHOLD = 5; 
@@ -36,18 +38,27 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
             return;
         }
         startX.current = e.clientX;
+        startY.current = e.clientY;
         hasMoved.current = false;
+        isScrolling.current = false;
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        if (disableSwipe) return;
+        if (disableSwipe || isScrolling.current) return;
 
         const diffX = e.clientX - startX.current;
+        const diffY = e.clientY - startY.current;
 
-        if (!isDragging && Math.abs(diffX) > DRAG_THRESHOLD) {
-            setIsDragging(true);
-            hasMoved.current = true;
-            containerRef.current?.setPointerCapture(e.pointerId);
+        if (!isDragging) {
+            if (Math.abs(diffY) > DRAG_THRESHOLD && Math.abs(diffY) > Math.abs(diffX)) {
+                isScrolling.current = true;
+                return;
+            }
+            if (Math.abs(diffX) > DRAG_THRESHOLD) {
+                setIsDragging(true);
+                hasMoved.current = true;
+                containerRef.current?.setPointerCapture(e.pointerId);
+            }
         }
 
         if (isDragging) {
@@ -104,7 +115,7 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
 
     return (
         <div 
-            className={`relative overflow-hidden touch-none select-none ${className}`} 
+            className={`relative overflow-hidden touch-pan-y select-none ${className}`} 
             ref={containerRef}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
