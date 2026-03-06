@@ -243,6 +243,21 @@ const AppContent: React.FC = () => {
                     onEditItem={(item) => { setEditingItem(item); setScreen('addItem'); }}
                     onDeleteItem={(itemId) => setLists(lists.map(l => l.id === selectedListId ? { ...l, items: l.items.filter(i => i.id !== itemId) } : l))}
                     onEditList={() => setEditingList(selectedList)}
+                    onArchiveList={() => {
+                        setLists(lists.map(l => l.id === selectedListId ? { ...l, status: l.status === 'archived' ? 'active' : 'archived' } : l));
+                        setScreen('lists');
+                    }}
+                    onShareList={() => {
+                        if (navigator.share) {
+                            const itemsText = selectedList.items.map(i => `- ${i.name} (${i.quantity}${i.unit})`).join('\n');
+                            navigator.share({
+                                title: selectedList.name,
+                                text: `Lista de Compras: ${selectedList.name}\n\n${itemsText}`,
+                            }).catch(console.error);
+                        } else {
+                            alert(t('share_not_supported') || "A partilha não é suportada neste dispositivo.");
+                        }
+                    }}
                     onCheckPrice={handleCheckPrice}
                     onShowPriceAlert={setAlertItem}
                     onSearchPromotions={handleSearchPromotions}

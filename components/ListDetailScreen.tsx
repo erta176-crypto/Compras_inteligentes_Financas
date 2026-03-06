@@ -33,6 +33,8 @@ interface ListDetailScreenProps {
     onEditItem: (item: ListItem) => void;
     onDeleteItem: (itemId: string) => void;
     onEditList: () => void;
+    onArchiveList: () => void;
+    onShareList: () => void;
     onCheckPrice: (listId: string, itemId: string) => void;
     onShowPriceAlert: (item: ListItem) => void;
     onSearchPromotions: (listId: string, itemId: string) => void;
@@ -124,7 +126,7 @@ const ListItemComponent: React.FC<{
     );
 };
 
-export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists, onBack, onAddItem, onToggleItem, onEditItem, onDeleteItem, onEditList, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, onQuickAdd, onBulkUpdate, onBulkDelete, onBulkMove }) => {
+export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists, onBack, onAddItem, onToggleItem, onEditItem, onDeleteItem, onEditList, onArchiveList, onShareList, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, onQuickAdd, onBulkUpdate, onBulkDelete, onBulkMove }) => {
     const { t, categories } = useApp();
     const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'price' | 'category'>('name');
@@ -226,8 +228,13 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                 <div className="flex items-center space-x-2">
                     {!isBulkMode && (
                         <>
-                            <button onClick={onEditList} className="p-1 text-gray-500"><SettingsIcon className="w-6 h-6" /></button>
-                            <button onClick={() => {}} className="p-1 text-primary"><ShareIcon className="w-6 h-6" /></button>
+                            <button onClick={onEditList} className="p-1 text-gray-500" title={t('edit_list')}><SettingsIcon className="w-6 h-6" /></button>
+                            <button onClick={onArchiveList} className="p-1 text-gray-500" title={list.status === 'archived' ? t('unarchive') : t('archive')}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                </svg>
+                            </button>
+                            <button onClick={onShareList} className="p-1 text-primary" title={t('share_list')}><ShareIcon className="w-6 h-6" /></button>
                         </>
                     )}
                     <button onClick={() => { setIsBulkMode(!isBulkMode); setSelectedItemIds([]); }} className={`font-semibold px-2 py-1 rounded ${isBulkMode ? 'text-red-500' : 'text-primary'}`}>{isBulkMode ? t('cancel') : t('selection_mode')}</button>

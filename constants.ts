@@ -31,6 +31,10 @@ export const initialCategories: Category[] = [
 export const translations = {
     en: {
         'welcome_title': 'Smart Shopping',
+        'share_list': 'Share List',
+        'share_not_supported': 'Sharing is not supported on this device.',
+        'archive': 'Archive',
+        'unarchive': 'Unarchive',
     },
     pt: {
         'all': 'Todos',
@@ -186,6 +190,9 @@ export const translations = {
         'new_price': 'Preço Novo',
         'view_source': 'Ver Fonte',
         'share_list': 'Partilhar Lista',
+        'share_not_supported': 'A partilha não é suportada neste dispositivo.',
+        'archive': 'Arquivar',
+        'unarchive': 'Desarquivar',
         'export_csv': 'CSV',
         'onboarding_welcome_title': 'Bem-vindo ao SmartShop',
         'onboarding_welcome_desc': 'A sua nova forma de organizar compras e gerir despesas de forma inteligente.',
