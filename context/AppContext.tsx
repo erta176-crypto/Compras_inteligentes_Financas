@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
-import { AppContextType, Language, Theme, Store, Category, User, ShoppingList, Transaction, Budget, PurchaseRecord } from '../types';
+import { AppContextType, Language, Theme, ColorTheme, Store, Category, User, ShoppingList, Transaction, Budget, PurchaseRecord } from '../types';
 import { translations, initialStores, initialCategories, GOOGLE_CLIENT_ID } from '../constants';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -27,6 +27,10 @@ const decodeJwt = (token: string) => {
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [language, setLanguage] = useState<Language>('pt');
     const [theme, setTheme] = useState<Theme>('light');
+    const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
+        const stored = localStorage.getItem('colorTheme') as ColorTheme;
+        return stored || 'purple';
+    });
     const [stores, setStores] = useState<Store[]>(() => {
         const stored = localStorage.getItem('stores');
         return stored ? JSON.parse(stored) : initialStores;
@@ -99,6 +103,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         localStorage.setItem('theme', theme);
     }, [theme]);
+
+    // Aplicar colorTheme ao documento
+    useEffect(() => {
+        const root = window.document.documentElement;
+        root.classList.remove('theme-purple', 'theme-green', 'theme-blue', 'theme-orange', 'theme-pink');
+        root.classList.add(`theme-${colorTheme}`);
+        localStorage.setItem('colorTheme', colorTheme);
+    }, [colorTheme]);
 
     // Persistência das listas
     useEffect(() => {
@@ -244,6 +256,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         <AppContext.Provider value={{ 
             language, setLanguage, 
             theme, setTheme,
+            colorTheme, setColorTheme,
             user, loginWithGoogle, loginWithBiometrics, logout, updateUser, login,
             t, 
             stores, setStores, 

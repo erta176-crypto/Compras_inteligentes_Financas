@@ -124,11 +124,15 @@ export type Language = 'en' | 'pt';
 
 export type Theme = 'light' | 'dark';
 
+export type ColorTheme = 'purple' | 'green' | 'blue' | 'orange' | 'pink';
+
 export interface AppContextType {
     language: Language;
     setLanguage: (language: Language) => void;
     theme: Theme;
     setTheme: (theme: Theme) => void;
+    colorTheme: ColorTheme;
+    setColorTheme: (theme: ColorTheme) => void;
     user: User | null;
     loginWithGoogle: (credential?: string) => Promise<void>;
     loginWithBiometrics: () => Promise<boolean>;

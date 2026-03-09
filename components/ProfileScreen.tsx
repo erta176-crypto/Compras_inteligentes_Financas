@@ -34,7 +34,7 @@ const ToggleRow: React.FC<{ label: string; description?: string; enabled: boolea
 
 
 export const ProfileScreen: React.FC = () => {
-    const { t, theme, setTheme, user, logout, updateUser } = useApp();
+    const { t, theme, setTheme, colorTheme, setColorTheme, user, logout, updateUser } = useApp();
     const isDarkMode = theme === 'dark';
     const [isManageStoresOpen, setIsManageStoresOpen] = useState(false);
     const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
@@ -174,6 +174,31 @@ export const ProfileScreen: React.FC = () => {
                     <ProfileRow label={t('manage_budget_categories')} value="" isNav onClick={() => setIsManageBudgetCategoriesOpen(true)} />
                     <ProfileRow label={t('user_manual')} value="" isNav onClick={() => setIsUserManualOpen(true)} />
                     <ToggleRow label={t('dark_mode')} enabled={isDarkMode} onToggle={() => setTheme(isDarkMode ? 'light' : 'dark')} />
+                    
+                    <div className="flex flex-col items-center py-5 gap-4">
+                        <div className="text-center">
+                            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-wider mb-1">Cor da Aplicação</p>
+                            <p className="font-bold text-light-text dark:text-dark-text">Tema Principal</p>
+                        </div>
+                        <div className="flex gap-3 justify-center">
+                            {(['purple', 'green', 'blue', 'orange', 'pink'] as const).map(color => (
+                                <button
+                                    key={color}
+                                    onClick={() => setColorTheme(color)}
+                                    className={`w-10 h-10 rounded-full border-2 transition-all ${
+                                        colorTheme === color ? 'border-light-text dark:border-dark-text scale-110 shadow-md' : 'border-transparent scale-100'
+                                    }`}
+                                    style={{
+                                        backgroundColor: 
+                                            color === 'purple' ? '#7C3AED' :
+                                            color === 'green' ? '#2ECC71' :
+                                            color === 'blue' ? '#3B82F6' :
+                                            color === 'orange' ? '#F97316' : '#EC4899'
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
             

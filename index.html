@@ -18,6 +18,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --color-primary: #7C3AED;
+        --color-primary-dark: #6D28D9;
+      }
+      :root.theme-purple {
+        --color-primary: #7C3AED;
+        --color-primary-dark: #6D28D9;
+      }
+      :root.theme-green {
+        --color-primary: #2ECC71;
+        --color-primary-dark: #27AE60;
+      }
+      :root.theme-blue {
+        --color-primary: #3B82F6;
+        --color-primary-dark: #2563EB;
+      }
+      :root.theme-orange {
+        --color-primary: #F97316;
+        --color-primary-dark: #EA580C;
+      }
+      :root.theme-pink {
+        --color-primary: #EC4899;
+        --color-primary-dark: #DB2777;
+      }
+    </style>
     <!-- Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
@@ -29,8 +55,8 @@
               sans: ['Inter', 'sans-serif'],
             },
             colors: {
-              'primary': '#7C3AED',
-              'primary-dark': '#6D28D9',
+              'primary': 'var(--color-primary)',
+              'primary-dark': 'var(--color-primary-dark)',
               'dark-bg': '#121212',
               'dark-surface': '#1E1E1E',
               'dark-text': '#E0E0E0',
