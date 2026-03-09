@@ -9,6 +9,7 @@ export interface User {
     isProfileComplete: boolean;
     biometricsEnabled?: boolean;
     memberSince: string;
+    billingCycleStartDay?: number;
 }
 
 export interface Store {

@@ -135,9 +135,31 @@ export const FinanceDashboardScreen: React.FC<{ onOpenHistory?: () => void }> = 
 
     const displayName = user?.name || t('default_user');
 
+    const daysUntilNextCycle = useMemo(() => {
+        const startDay = user?.billingCycleStartDay || 1;
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const currentDay = now.getDate();
+
+        let nextCycleDate: Date;
+        
+        if (currentDay < startDay) {
+            // Next cycle is this month
+            nextCycleDate = new Date(currentYear, currentMonth, startDay);
+        } else {
+            // Next cycle is next month
+            nextCycleDate = new Date(currentYear, currentMonth + 1, startDay);
+        }
+
+        const diffTime = nextCycleDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        return diffDays;
+    }, [user?.billingCycleStartDay]);
+
     return (
         <div className="h-full overflow-y-auto p-6 bg-light-bg dark:bg-dark-bg pb-24">
-            <header className="mb-8 flex justify-between items-center">
+            <header className="mb-4 flex justify-between items-center">
                 <div>
                     <p className="text-gray-400 dark:text-gray-500 font-black text-[10px] uppercase tracking-[0.2em] mb-1">{t('dashboard_title')}</p>
                     <h1 className="text-3xl font-black text-light-text dark:text-dark-text tracking-tight">{displayName}</h1>
@@ -149,6 +171,17 @@ export const FinanceDashboardScreen: React.FC<{ onOpenHistory?: () => void }> = 
                     <PlusIcon className="w-6 h-6 text-primary" />
                 </button>
             </header>
+
+            {/* Billing Cycle Countdown */}
+            <div className="mb-8 flex items-center gap-2 bg-light-surface dark:bg-dark-surface p-3 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <span className="text-blue-500 font-black text-xs">{daysUntilNextCycle}</span>
+                </div>
+                <div>
+                    <p className="text-xs font-bold text-light-text dark:text-dark-text">Dias para o próximo ciclo</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Ciclo inicia dia {user?.billingCycleStartDay || 1}</p>
+                </div>
+            </div>
 
             {/* Balance Card */}
             <div className="bg-primary text-white rounded-[40px] p-8 mb-8 shadow-2xl shadow-primary/30 relative overflow-hidden">

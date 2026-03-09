@@ -42,6 +42,7 @@ export const ProfileScreen: React.FC = () => {
     const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
     const [isUserManualOpen, setIsUserManualOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     const displayName = user?.name || t('default_user');
     const displayEmail = user?.email || 'utilizador@email.pt';
@@ -63,6 +64,10 @@ export const ProfileScreen: React.FC = () => {
 
     const handlePhotoClick = () => {
         fileInputRef.current?.click();
+    };
+
+    const handleCameraClick = () => {
+        cameraInputRef.current?.click();
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,6 +93,14 @@ export const ProfileScreen: React.FC = () => {
                      onChange={handleFileChange} 
                      className="hidden" 
                  />
+                 <input 
+                     type="file" 
+                     accept="image/*" 
+                     capture="user"
+                     ref={cameraInputRef} 
+                     onChange={handleFileChange} 
+                     className="hidden" 
+                 />
                  <div 
                      className="relative w-20 h-20 rounded-[28px] bg-primary/10 flex items-center justify-center mr-5 overflow-hidden border-2 border-white dark:border-gray-700 shadow-lg cursor-pointer group"
                      onClick={handlePhotoClick}
@@ -103,12 +116,20 @@ export const ProfileScreen: React.FC = () => {
                 </div>
                 <div>
                     <h2 className="font-black text-xl text-light-text dark:text-dark-text">{displayName}</h2>
-                    <p 
-                        className="text-xs font-bold text-primary mt-1 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={handlePhotoClick}
-                    >
-                        Alterar Foto
-                    </p>
+                    <div className="flex gap-4 mt-2">
+                        <p 
+                            className="text-xs font-bold text-primary cursor-pointer hover:opacity-80 transition-opacity bg-primary/10 px-3 py-1.5 rounded-full"
+                            onClick={handlePhotoClick}
+                        >
+                            Galeria
+                        </p>
+                        <p 
+                            className="text-xs font-bold text-primary cursor-pointer hover:opacity-80 transition-opacity bg-primary/10 px-3 py-1.5 rounded-full"
+                            onClick={handleCameraClick}
+                        >
+                            Câmera
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -131,6 +152,23 @@ export const ProfileScreen: React.FC = () => {
 
                 <div className="bg-light-surface dark:bg-dark-surface p-8 rounded-[40px] divide-y divide-gray-50 dark:divide-gray-800 shadow-sm border border-gray-100 dark:border-gray-800">
                     <h3 className="font-black text-gray-400 dark:text-gray-500 text-[10px] uppercase tracking-[0.2em] pb-6">{t('settings')}</h3>
+                    
+                    <div className="flex justify-between items-center py-3">
+                        <div className="flex-1">
+                            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-wider">Início do Ciclo Mensal</p>
+                            <p className="font-bold text-light-text dark:text-dark-text pr-4">Dia do Mês</p>
+                        </div>
+                        <select 
+                            value={user?.billingCycleStartDay || 1}
+                            onChange={(e) => updateUser({ billingCycleStartDay: Number(e.target.value) })}
+                            className="bg-gray-100 dark:bg-gray-800 border-none rounded-xl px-4 py-2 font-bold text-sm focus:ring-2 focus:ring-primary outline-none"
+                        >
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                <option key={day} value={day}>{day}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <ProfileRow label={t('manage_stores')} value="" isNav onClick={() => setIsManageStoresOpen(true)} />
                     <ProfileRow label={t('manage_categories')} value="" isNav onClick={() => setIsManageCategoriesOpen(true)} />
                     <ProfileRow label={t('manage_budget_categories')} value="" isNav onClick={() => setIsManageBudgetCategoriesOpen(true)} />
