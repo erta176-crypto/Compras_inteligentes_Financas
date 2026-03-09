@@ -74,6 +74,7 @@ export interface ShoppingList {
     icon: string;
     items: ListItem[];
     status: 'active' | 'archived' | 'shared';
+    isHistoryArchive?: boolean;
     description?: string;
     storeId?: string;
     budgetCategory?: string;

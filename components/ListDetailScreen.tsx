@@ -43,6 +43,8 @@ interface ListDetailScreenProps {
     onBulkUpdate: (listId: string, itemIds: string[], updates: Partial<ListItem>) => void;
     onBulkDelete: (listId: string, itemIds: string[]) => void;
     onBulkMove: (sourceListId: string, destListId: string, itemIds: string[]) => void;
+    onFinishAndArchiveList: (listId: string) => void;
+    onCopyList: (listId: string) => void;
 }
 
 const ListItemComponent: React.FC<{ 
@@ -126,7 +128,7 @@ const ListItemComponent: React.FC<{
     );
 };
 
-export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists, onBack, onAddItem, onToggleItem, onEditItem, onDeleteItem, onEditList, onArchiveList, onShareList, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, onQuickAdd, onBulkUpdate, onBulkDelete, onBulkMove }) => {
+export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists, onBack, onAddItem, onToggleItem, onEditItem, onDeleteItem, onEditList, onArchiveList, onShareList, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, onQuickAdd, onBulkUpdate, onBulkDelete, onBulkMove, onFinishAndArchiveList, onCopyList }) => {
     const { t, categories } = useApp();
     const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'price' | 'category'>('name');
@@ -193,7 +195,7 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
 
     const totalCompletedAmount = useMemo(() => completedItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0), [completedItems]);
 
-    const handleFinishShopping = (store: string) => {
+    const handleFinishShopping = (store: string, archiveList: boolean) => {
         const record = {
             id: `purchase-${Date.now()}`,
             date: new Date().toISOString(),
@@ -206,9 +208,13 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
         // Add to history
         addPurchaseRecord(record);
         
-        // Remove completed items from the list
-        const completedIds = completedItems.map(i => i.id);
-        onBulkDelete(list.id, completedIds);
+        if (archiveList) {
+            onFinishAndArchiveList(list.id);
+        } else {
+            // Remove completed items from the list
+            const completedIds = completedItems.map(i => i.id);
+            onBulkDelete(list.id, completedIds);
+        }
         
         setShowFinishModal(false);
     };
@@ -229,11 +235,21 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
                     {!isBulkMode && (
                         <>
                             <button onClick={onEditList} className="p-1 text-gray-500" title={t('edit_list')}><SettingsIcon className="w-6 h-6" /></button>
-                            <button onClick={onArchiveList} className="p-1 text-gray-500" title={list.status === 'archived' ? t('unarchive') : t('archive')}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                </svg>
-                            </button>
+                            
+                            {list.isHistoryArchive ? (
+                                <button onClick={() => onCopyList(list.id)} className="p-1 text-gray-500" title={t('copy_list') || 'Copiar Lista'}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </button>
+                            ) : (
+                                <button onClick={onArchiveList} className="p-1 text-gray-500" title={list.status === 'archived' ? t('unarchive') : t('archive')}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                    </svg>
+                                </button>
+                            )}
+                            
                             <button onClick={onShareList} className="p-1 text-primary" title={t('share_list')}><ShareIcon className="w-6 h-6" /></button>
                         </>
                     )}
@@ -322,6 +338,13 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
             
             <MoveItemsModal isOpen={showMoveModal} onClose={() => setShowMoveModal(false)} onMove={(dest) => { onBulkMove(list.id, dest, selectedItemIds); setIsBulkMode(false); setShowMoveModal(false); }} lists={lists} currentListId={list.id} />
             <ConfirmationModal isOpen={itemToDeleteId !== null} title={t('confirm_delete_item')} message={`${t('confirm_delete_item_msg')} "${list.items.find(i=>i.id===itemToDeleteId)?.name}"?`} onConfirm={() => { onDeleteItem(itemToDeleteId!); setItemToDeleteId(null); }} onCancel={() => setItemToDeleteId(null)} />
+            <FinishShoppingModal 
+                isOpen={showFinishModal}
+                onClose={() => setShowFinishModal(false)}
+                onConfirm={handleFinishShopping}
+                completedItems={completedItems}
+                totalAmount={totalCompletedAmount}
+            />
         </div>
     );
 };

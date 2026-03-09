@@ -273,6 +273,32 @@ const AppContent: React.FC = () => {
                             return l;
                         }));
                     }}
+                    onFinishAndArchiveList={(listId) => {
+                        const dateStr = new Date().toLocaleDateString();
+                        setLists(lists.map(l => l.id === listId ? {
+                            ...l,
+                            name: `${l.name} (${dateStr})`,
+                            status: 'archived',
+                            isHistoryArchive: true
+                        } : l));
+                        setScreen('lists');
+                    }}
+                    onCopyList={(listId) => {
+                        const sourceList = lists.find(l => l.id === listId);
+                        if (sourceList) {
+                            const newList: ShoppingList = {
+                                ...sourceList,
+                                id: `list-${Date.now()}`,
+                                name: `${sourceList.name.replace(/ \(\d{1,2}\/\d{1,2}\/\d{4}\)$/, '')} (Cópia)`,
+                                status: 'active',
+                                isHistoryArchive: false,
+                                progress: 0,
+                                items: sourceList.items.map(i => ({ ...i, id: `item-${Date.now()}-${Math.random()}`, completed: false }))
+                            };
+                            setLists([...lists, newList]);
+                            setSelectedListId(newList.id);
+                        }
+                    }}
                 />
             ) : null;
             case 'addItem': return (
