@@ -129,7 +129,7 @@ const ListItemComponent: React.FC<{
 };
 
 export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists, onBack, onAddItem, onToggleItem, onEditItem, onDeleteItem, onEditList, onArchiveList, onShareList, onCheckPrice, onShowPriceAlert, onSearchPromotions, onShowPromotions, onQuickAdd, onBulkUpdate, onBulkDelete, onBulkMove, onFinishAndArchiveList, onCopyList }) => {
-    const { t, categories } = useApp();
+    const { t, categories, addPurchaseRecord, setTransactions } = useApp();
     const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'price' | 'category'>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -140,7 +140,6 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
     const [quickAddName, setQuickAddName] = useState('');
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
     const [showFinishModal, setShowFinishModal] = useState(false);
-    const { addPurchaseRecord } = useApp();
 
     const { pendingItems, completedItems, totalCost, totalItems, completedItemsCount } = useMemo(() => {
         const pending = list.items.filter(item => !item.completed);
@@ -207,6 +206,19 @@ export const ListDetailScreen: React.FC<ListDetailScreenProps> = ({ list, lists,
         
         // Add to history
         addPurchaseRecord(record);
+        
+        // Add to transactions automatically
+        if (totalCompletedAmount > 0) {
+            const newTx = {
+                id: `tx-${Date.now()}`,
+                type: 'expense' as const,
+                amount: totalCompletedAmount,
+                category: list.budgetCategory || 'Supermercado',
+                description: store ? `Compra em ${store}` : `Compra: ${list.name}`,
+                date: new Date().toISOString(),
+            };
+            setTransactions(prev => [newTx, ...prev]);
+        }
         
         if (archiveList) {
             onFinishAndArchiveList(list.id);

@@ -16,7 +16,15 @@ export const FinanceDashboardScreen: React.FC<{ onOpenHistory?: () => void }> = 
     const { t, user, lists, transactions, budgetsWithSpent } = useApp();
     const [showAddModal, setShowAddModal] = React.useState(false);
     const [editingTransaction, setEditingTransaction] = React.useState<Transaction | null>(null);
+    const [transactionFilter, setTransactionFilter] = React.useState<'all' | 'income' | 'expense'>('all');
     
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(tx => {
+            if (transactionFilter === 'all') return true;
+            return tx.type === transactionFilter;
+        });
+    }, [transactions, transactionFilter]);
+
     const currentMonth = new Date().toLocaleString('pt-PT', { month: 'long' });
 
     const summary = useMemo(() => {
@@ -229,11 +237,23 @@ export const FinanceDashboardScreen: React.FC<{ onOpenHistory?: () => void }> = 
             <div className="mb-8">
                 <div className="flex justify-between items-center mb-6 px-2">
                     <h2 className="font-black text-xl tracking-tight">{t('recent_transactions')}</h2>
-                    <button className="text-primary text-xs font-black uppercase tracking-widest">{t('view_all_transactions')}</button>
                 </div>
-                {transactions.length > 0 ? (
+                
+                <div className="px-2 mb-4">
+                    <select
+                        value={transactionFilter}
+                        onChange={(e) => setTransactionFilter(e.target.value as 'all' | 'income' | 'expense')}
+                        className="w-full bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary font-bold text-sm appearance-none"
+                    >
+                        <option value="all">{t('all')}</option>
+                        <option value="income">{t('income')}</option>
+                        <option value="expense">{t('expense')}</option>
+                    </select>
+                </div>
+
+                {filteredTransactions.length > 0 ? (
                     <div className="space-y-3">
-                        {transactions.slice(0, 5).map((tx) => (
+                        {filteredTransactions.slice(0, 5).map((tx) => (
                             <div 
                                 key={tx.id} 
                                 className="flex items-center bg-light-surface dark:bg-dark-surface p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer active:scale-95 transition-all"

@@ -1,51 +1,126 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
+import { TrendingUpIcon } from './icons/TrendingUpIcon';
+import { TrendingDownIcon } from './icons/TrendingDownIcon';
+
+const MONTHS = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
+
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
 export const DashboardScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const { t, purchaseHistory, categories } = useApp();
+    const { t, purchaseHistory, transactions } = useApp();
 
-    const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
 
-    // Filter history for current month
-    const thisMonthHistory = useMemo(() => {
-        return purchaseHistory.filter(record => {
-            const date = new Date(record.date);
-            return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+    const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(currentMonth);
+
+    // Get available years from data
+    const availableYears = useMemo(() => {
+        const years = new Set<number>([currentYear]);
+        transactions.forEach(tx => years.add(new Date(tx.date).getFullYear()));
+        purchaseHistory.forEach(ph => years.add(new Date(ph.date).getFullYear()));
+        return Array.from(years).sort((a, b) => b - a);
+    }, [transactions, purchaseHistory, currentYear]);
+
+    // Filter data based on selection
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(tx => {
+            const date = new Date(tx.date);
+            if (date.getFullYear() !== selectedYear) return false;
+            if (selectedMonth !== 'all' && date.getMonth() !== selectedMonth) return false;
+            return true;
         });
-    }, [purchaseHistory, currentMonth, currentYear]);
+    }, [transactions, selectedYear, selectedMonth]);
 
-    const totalSpentThisMonth = useMemo(() => {
-        return thisMonthHistory.reduce((sum, record) => sum + record.totalAmount, 0);
-    }, [thisMonthHistory]);
+    const filteredPurchases = useMemo(() => {
+        return purchaseHistory.filter(ph => {
+            const date = new Date(ph.date);
+            if (date.getFullYear() !== selectedYear) return false;
+            if (selectedMonth !== 'all' && date.getMonth() !== selectedMonth) return false;
+            return true;
+        });
+    }, [purchaseHistory, selectedYear, selectedMonth]);
 
-    // Data for Category Pie Chart
+    // Summaries
+    const totalIncome = useMemo(() => 
+        filteredTransactions.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0),
+    [filteredTransactions]);
+
+    const totalExpense = useMemo(() => 
+        filteredTransactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0),
+    [filteredTransactions]);
+
+    // Evolution Chart Data (Monthly breakdown for the selected year)
+    const evolutionData = useMemo(() => {
+        if (selectedMonth !== 'all') return [];
+        
+        const monthlyData = MONTHS.map((month, index) => ({
+            name: month.substring(0, 3),
+            income: 0,
+            expense: 0
+        }));
+
+        transactions.forEach(tx => {
+            const date = new Date(tx.date);
+            if (date.getFullYear() === selectedYear) {
+                const monthIdx = date.getMonth();
+                if (tx.type === 'income') {
+                    monthlyData[monthIdx].income += tx.amount;
+                } else {
+                    monthlyData[monthIdx].expense += tx.amount;
+                }
+            }
+        });
+
+        return monthlyData;
+    }, [transactions, selectedYear, selectedMonth]);
+
+    // Category Chart Data (Expenses only)
     const categoryData = useMemo(() => {
         const categoryTotals: Record<string, number> = {};
-        thisMonthHistory.forEach(record => {
-            record.items.forEach(item => {
-                const cat = item.category || 'Outros';
-                const itemTotal = (item.price || 0) * item.quantity;
-                categoryTotals[cat] = (categoryTotals[cat] || 0) + itemTotal;
-            });
+        filteredTransactions.filter(tx => tx.type === 'expense').forEach(tx => {
+            const cat = tx.category || 'Outros';
+            categoryTotals[cat] = (categoryTotals[cat] || 0) + tx.amount;
         });
 
         return Object.entries(categoryTotals)
-            .map(([name, value]) => ({
+            .map(([name, value], index) => ({
                 name,
                 value,
-                color: categories.find(c => c.name === name)?.color || '#6B7280'
+                color: COLORS[index % COLORS.length]
             }))
             .filter(item => item.value > 0)
             .sort((a, b) => b.value - a.value);
-    }, [thisMonthHistory, categories]);
+    }, [filteredTransactions]);
 
-    // Data for Store Bar Chart
+    // List Category Data (Shopping list items)
+    const listCategoryData = useMemo(() => {
+        const listCategoryTotals: Record<string, number> = {};
+        filteredPurchases.forEach(record => {
+            record.items.forEach(item => {
+                const cat = item.category || 'Outros';
+                const itemTotal = (item.price || 0) * item.quantity;
+                listCategoryTotals[cat] = (listCategoryTotals[cat] || 0) + itemTotal;
+            });
+        });
+
+        return Object.entries(listCategoryTotals)
+            .map(([name, value]) => ({ name, value }))
+            .filter(item => item.value > 0)
+            .sort((a, b) => b.value - a.value);
+    }, [filteredPurchases]);
+
+    // Store Data
     const storeData = useMemo(() => {
         const storeTotals: Record<string, number> = {};
-        thisMonthHistory.forEach(record => {
+        filteredPurchases.forEach(record => {
             const store = record.store || 'Desconhecida';
             storeTotals[store] = (storeTotals[store] || 0) + record.totalAmount;
         });
@@ -53,37 +128,94 @@ export const DashboardScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
         return Object.entries(storeTotals)
             .map(([name, value]) => ({ name, value }))
             .filter(item => item.value > 0)
-            .sort((a, b) => b.value - a.value);
-    }, [thisMonthHistory]);
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5); // Top 5 stores
+    }, [filteredPurchases]);
 
     return (
         <div className="h-full flex flex-col bg-light-bg dark:bg-dark-bg">
             <header className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-light-surface dark:bg-dark-surface sticky top-0 z-10">
                 <button onClick={onBack} className="p-1"><ChevronLeftIcon className="w-6 h-6" /></button>
                 <div className="flex-1 text-center px-2">
-                    <h1 className="font-bold text-lg">{t('dashboard') || 'Estatísticas'}</h1>
+                    <h1 className="font-bold text-lg">Histórico e Estatísticas</h1>
                 </div>
                 <div className="w-8"></div>
             </header>
 
-            <div className="flex-grow overflow-y-auto p-4 space-y-6">
-                {/* Total Spent Card */}
-                <div className="bg-primary/10 rounded-2xl p-6 text-center">
-                    <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">
-                        {t('spent_this_month') || 'Gasto este Mês'}
-                    </p>
-                    <p className="text-4xl font-black text-primary">
-                        {totalSpentThisMonth.toFixed(2)} €
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                        {thisMonthHistory.length} {t('purchases') || 'compras registadas'}
-                    </p>
+            <div className="flex-grow overflow-y-auto p-4 space-y-6 pb-24">
+                
+                {/* Filters */}
+                <div className="flex gap-2">
+                    <select 
+                        value={selectedYear} 
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="flex-1 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:outline-none focus:border-primary"
+                    >
+                        {availableYears.map(year => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+                    <select 
+                        value={selectedMonth} 
+                        onChange={(e) => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                        className="flex-2 p-3 bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:outline-none focus:border-primary"
+                    >
+                        <option value="all">Todos os Meses</option>
+                        {MONTHS.map((month, index) => (
+                            <option key={index} value={index}>{month}</option>
+                        ))}
+                    </select>
                 </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-light-surface dark:bg-dark-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                                <TrendingUpIcon className="w-4 h-4 text-green-500" />
+                            </div>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Rendimentos</span>
+                        </div>
+                        <p className="font-black text-2xl text-green-500">+{totalIncome.toFixed(2)}€</p>
+                    </div>
+                    <div className="bg-light-surface dark:bg-dark-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                                <TrendingDownIcon className="w-4 h-4 text-red-500" />
+                            </div>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Despesas</span>
+                        </div>
+                        <p className="font-black text-2xl text-red-500">-{totalExpense.toFixed(2)}€</p>
+                    </div>
+                </div>
+
+                {/* Evolution Chart (Only visible if 'all' months is selected) */}
+                {selectedMonth === 'all' && evolutionData.length > 0 && (
+                    <div className="bg-light-surface dark:bg-dark-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <h2 className="font-black text-sm mb-6 uppercase tracking-widest text-gray-400">Evolução Anual</h2>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={evolutionData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }} />
+                                    <Tooltip 
+                                        cursor={{ fill: 'transparent' }}
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                    />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '20px' }} />
+                                    <Bar dataKey="income" name="Rendimentos" fill="#22C55E" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="expense" name="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
 
                 {/* Category Chart */}
                 {categoryData.length > 0 && (
-                    <div className="bg-light-surface dark:bg-dark-surface rounded-2xl p-4 shadow-sm">
-                        <h2 className="font-bold text-sm mb-4">{t('spending_by_category') || 'Gastos por Categoria'}</h2>
+                    <div className="bg-light-surface dark:bg-dark-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <h2 className="font-black text-sm mb-4 uppercase tracking-widest text-gray-400">Despesas por Categoria (Orçamento)</h2>
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -101,62 +233,70 @@ export const DashboardScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                                         ))}
                                     </Pie>
                                     <Tooltip 
-                                        formatter={(value: number) => `${value.toFixed(2)} €`}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Gasto']}
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
                                     />
-                                    <Legend />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                    </div>
-                )}
-
-                {/* Store Chart */}
-                {storeData.length > 0 && (
-                    <div className="bg-light-surface dark:bg-dark-surface rounded-2xl p-4 shadow-sm">
-                        <h2 className="font-bold text-sm mb-4">{t('spending_by_store') || 'Gastos por Loja'}</h2>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={storeData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} style={{ fontSize: '12px', fontWeight: 'bold' }} />
-                                    <Tooltip 
-                                        formatter={(value: number) => `${value.toFixed(2)} €`}
-                                        cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    />
-                                    <Bar dataKey="value" fill="#2ECC71" radius={[0, 4, 4, 0]} barSize={24} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                )}
-
-                {/* Recent Purchases List */}
-                {thisMonthHistory.length > 0 && (
-                    <div className="bg-light-surface dark:bg-dark-surface rounded-2xl p-4 shadow-sm">
-                        <h2 className="font-bold text-sm mb-4">{t('recent_purchases') || 'Compras Recentes'}</h2>
-                        <div className="space-y-3">
-                            {thisMonthHistory.slice().reverse().map(record => (
-                                <div key={record.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                                    <div>
-                                        <p className="font-bold text-sm">{record.store || record.listName}</p>
-                                        <p className="text-[10px] text-gray-500 uppercase tracking-wider">
-                                            {new Date(record.date).toLocaleDateString()} • {record.items.length} {t('articles') || 'artigos'}
-                                        </p>
+                        <div className="mt-4 space-y-2">
+                            {categoryData.map((cat, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-sm font-bold">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                                        <span>{cat.name}</span>
                                     </div>
-                                    <div className="font-black text-primary">
-                                        {record.totalAmount.toFixed(2)} €
-                                    </div>
+                                    <span>{cat.value.toFixed(2)}€</span>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {thisMonthHistory.length === 0 && (
-                    <div className="text-center py-12 text-gray-400">
-                        <p>{t('no_history_yet') || 'Ainda não tem compras finalizadas este mês.'}</p>
+                {/* List Category Chart (Horizontal Bar) */}
+                {listCategoryData.length > 0 && (
+                    <div className="bg-light-surface dark:bg-dark-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <h2 className="font-black text-sm mb-4 uppercase tracking-widest text-gray-400">Despesas por Categoria (Listas)</h2>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={listCategoryData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }} />
+                                    <Tooltip 
+                                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Gasto']}
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                        cursor={{ fill: 'transparent' }}
+                                    />
+                                    <Bar dataKey="value" fill="#8B5CF6" radius={[0, 4, 4, 0]} barSize={20} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+
+                {/* Top Stores */}
+                {storeData.length > 0 && (
+                    <div className="bg-light-surface dark:bg-dark-surface rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <h2 className="font-black text-sm mb-4 uppercase tracking-widest text-gray-400">Top Lojas (Supermercado)</h2>
+                        <div className="space-y-3">
+                            {storeData.map((store, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs">
+                                            {index + 1}
+                                        </div>
+                                        <span className="font-bold">{store.name}</span>
+                                    </div>
+                                    <span className="font-black text-primary">{store.value.toFixed(2)}€</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {filteredTransactions.length === 0 && filteredPurchases.length === 0 && (
+                    <div className="text-center py-10 opacity-50">
+                        <p className="font-bold">Sem dados para o período selecionado.</p>
                     </div>
                 )}
             </div>

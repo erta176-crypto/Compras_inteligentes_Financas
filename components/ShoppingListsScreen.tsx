@@ -160,34 +160,24 @@ export const ShoppingListsScreen: React.FC<ShoppingListsScreenProps> = ({ lists,
                 </div>
             </header>
 
-            <div className="px-4 mb-2 flex space-x-2 overflow-x-auto pb-2 no-scrollbar">
-                <button
-                     onClick={() => setActiveStoreFilter('all')}
-                     className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all ${
-                         activeStoreFilter === 'all'
-                             ? 'bg-primary text-white shadow-lg'
-                             : 'bg-light-surface dark:bg-dark-surface text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                     }`}
+            <div className="px-4 mb-2">
+                <select
+                    value={activeStoreFilter}
+                    onChange={(e) => setActiveStoreFilter(e.target.value)}
+                    className="w-full bg-light-surface dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary font-bold text-sm appearance-none"
+                    style={{
+                        backgroundColor: activeStoreFilter !== 'all' ? stores.find(s => s.id === activeStoreFilter)?.color + '20' : undefined,
+                        color: activeStoreFilter !== 'all' ? stores.find(s => s.id === activeStoreFilter)?.color : undefined,
+                        borderColor: activeStoreFilter !== 'all' ? stores.find(s => s.id === activeStoreFilter)?.color : undefined
+                    }}
                 >
-                    {t('all_stores')}
-                </button>
-                {stores.map(store => (
-                    <button
-                        key={store.id}
-                        onClick={() => setActiveStoreFilter(store.id)}
-                        className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1 ${
-                            activeStoreFilter === store.id
-                                ? 'shadow-lg text-white'
-                                : 'bg-light-surface dark:bg-dark-surface text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                        }`}
-                        style={{ 
-                            backgroundColor: activeStoreFilter === store.id ? store.color : undefined 
-                        }}
-                    >
-                        <span>{store.icon}</span>
-                        <span>{store.name}</span>
-                    </button>
-                ))}
+                    <option value="all">{t('all_stores')}</option>
+                    {stores.map(store => (
+                        <option key={store.id} value={store.id}>
+                            {store.icon} {store.name}
+                        </option>
+                    ))}
+                </select>
             </div>
             
             <div className="px-4">

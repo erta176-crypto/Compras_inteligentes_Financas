@@ -86,13 +86,13 @@ export const BudgetScreen: React.FC = () => {
                                                     type="number"
                                                     value={editingLimit === undefined ? '' : editingLimit}
                                                     onChange={e => setEditingLimit(parseFloat(e.target.value) || 0)}
-                                                    className="flex-1 p-2 text-2xl font-black text-primary bg-light-bg dark:bg-dark-bg border border-primary/20 rounded-xl focus:outline-none"
+                                                    className="flex-1 min-w-0 w-full p-2 text-2xl font-black text-primary bg-light-bg dark:bg-dark-bg border border-primary/20 rounded-xl focus:outline-none"
                                                     autoFocus
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter') handleUpdateBudget(budget.id);
                                                     }}
                                                 />
-                                                <button onClick={() => handleUpdateBudget(budget.id)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-dark transition-colors">
+                                                <button onClick={() => handleUpdateBudget(budget.id)} className="p-2 shrink-0 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-dark transition-colors">
                                                     <CheckIcon className="w-5 h-5" />
                                                 </button>
                                             </div>
